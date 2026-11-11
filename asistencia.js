@@ -93,20 +93,22 @@ function partesMexico(ahora = new Date()) {
 }
 
 // El próximo evento a partir de una fecha (por defecto: ahora, en México).
+// tipoDeseado: null (cualquiera), 'entreno' o 'juego'.
 // Devuelve { tipo, clave, nombre, hora } o null si algo raro pasa.
-function proximoEvento(ahora = new Date()) {
+function buscarEvento(ahora, tipoDeseado) {
   let { y, m, d, diaSemana, minutos } = partesMexico(ahora)
   for (let i = 0; i < 8; i++) {
     const dia = diaSemana // 0 dom, 1 lun, ..., 6 sáb
     const esDomingo = dia === 0
     const esEntreno = dia >= 1 && dia <= 5 // lun–vie
-    if (esDomingo || esEntreno) {
-      if (i === 0 && esEntreno) {
+    const tipo = esDomingo ? 'juego' : (esEntreno ? 'entreno' : null)
+    if (tipo && (!tipoDeseado || tipo === tipoDeseado)) {
+      if (i === 0 && tipo === 'entreno') {
         // Hoy es entreno: solo vale si aún no terminó (antes de las 5:30 pm).
         if (minutos < 17 * 60 + 30) return armarEvento({ y, m, d }, 'entreno')
         // Ya terminó: sigue buscando el siguiente día.
       } else {
-        return armarEvento({ y, m, d }, esDomingo ? 'juego' : 'entreno')
+        return armarEvento({ y, m, d }, tipo)
       }
     }
     // Avanza un día (en UTC para no depender de la zona del servidor).
@@ -117,6 +119,34 @@ function proximoEvento(ahora = new Date()) {
     diaSemana = sig.getUTCDay()
   }
   return null
+}
+
+function proximoEvento(ahora = new Date()) {
+  return buscarEvento(ahora, null)
+}
+
+function proximoJuego(ahora = new Date()) {
+  return buscarEvento(ahora, 'juego')
+}
+
+function proximoEntreno(ahora = new Date()) {
+  return buscarEvento(ahora, 'entreno')
+}
+
+// ¿El mensaje pregunta por el próximo evento? ("¿cuándo es el próximo
+// juego?", "qué sigue", "cuándo jugamos"...). 'cuando' solo no basta:
+// "¿a qué hora entrenan?" es horario, no próximo evento.
+function esPreguntaProximo(texto) {
+  return texto.includes('proximo')
+    || texto.includes('siguiente')
+    || texto.includes('que sigue')
+    || (texto.includes('cuando') && (texto.includes('juego') || texto.includes('partido')))
+}
+
+// El texto con el que el bot responde a "¿cuándo es el próximo evento?".
+function mensajeProximo(ahora = new Date(), archivo = ARCHIVO) {
+  const { evento, total } = lista(ahora, archivo)
+  return `El próximo evento es el ${evento.nombre}${evento.hora ? ` (${evento.hora})` : ''}. Van ${total} confirmados. Escribe "voy" para confirmar.`
 }
 
 function armarEvento({ y, m, d }, tipo) {
@@ -144,7 +174,11 @@ function cargar(archivo = ARCHIVO) {
 
 function guardar(datos, archivo = ARCHIVO) {
   fs.mkdirSync(path.dirname(archivo), { recursive: true })
-  fs.writeFileSync(archivo, JSON.stringify(datos, null, 2) + '\n')
+  // Escritura atómica: primero a un temporal y luego se renombra. Si el
+  // proceso muere a la mitad, el archivo original queda intacto.
+  const tmp = `${archivo}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(datos, null, 2) + '\n')
+  fs.renameSync(tmp, archivo)
 }
 
 // Anota a una persona para el próximo evento.
@@ -177,12 +211,14 @@ function cancelar(telefono, ahora = new Date(), archivo = ARCHIVO) {
   return { estado: 'quitado', evento, total: nueva.length }
 }
 
-// La lista del próximo evento. Devuelve { evento, nombres, total }.
-function lista(ahora = new Date(), archivo = ARCHIVO) {
-  const evento = proximoEvento(ahora)
+// La lista de un evento. Devuelve { evento, nombres, total }.
+// Sin eventoFijo es el próximo evento; con eventoFijo ("lista del juego")
+// es ese evento.
+function lista(ahora = new Date(), archivo = ARCHIVO, eventoFijo = null) {
+  const evento = eventoFijo || proximoEvento(ahora)
   const datos = cargar(archivo)
   const personas = datos[evento.clave] || []
   return { evento, nombres: personas.map((p) => p.nombre), total: personas.length }
 }
 
-module.exports = { detectarIntencion, proximoEvento, confirmar, cancelar, lista }
+module.exports = { detectarIntencion, proximoEvento, proximoJuego, proximoEntreno, esPreguntaProximo, mensajeProximo, confirmar, cancelar, lista }

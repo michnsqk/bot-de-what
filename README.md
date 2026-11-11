@@ -15,6 +15,11 @@ en `config.js`.
 - **juegos** — Los domingos.
 - **ubicación** — Aún no cargada: el bot dice que le pregunten al coach.
 - **menu / ayuda / hola** — Muestra el menú.
+- **próximo** — Cuándo es el próximo entreno o juego (con cuántos van).
+- **coach** — Quién es el coach (Javier).
+
+El bot también lee el pie de las fotos y videos: si mandas una foto con
+el texto "horario", responde igual.
 
 ## Asistencia (Fase 2)
 
@@ -23,7 +28,8 @@ en `config.js`.
   de hoy; si ya pasó la hora, el del día siguiente; el sábado, el juego
   del domingo. Cada quien se anota una sola vez.
 - **no voy** — Te quita de la lista del próximo evento.
-- **lista** — Muestra quiénes van al próximo evento.
+- **lista** — Muestra quiénes van al próximo evento. "Lista del juego"
+  muestra la del domingo y "lista del entreno" la del próximo entreno.
 
 La asistencia se guarda en `data/asistencia.json` (un archivo, sin base de
 datos). Ese archivo **nunca se sube al repo**: tiene nombres y teléfonos
@@ -79,7 +85,7 @@ node index.js
 equipo y tu número, escribe "horario" y "costos", y revisa que responda
 bien antes de dejarlo en el grupo real de 30 personas.
 
-Para probar la lógica sin conectar WhatsApp: `npm test` (53 casos:
+Para probar la lógica sin conectar WhatsApp: `npm test` (78 casos:
 respuestas, asistencia, avisos y reconexión).
 
 ## Cosas honestas que debes saber
@@ -87,7 +93,7 @@ respuestas, asistencia, avisos y reconexión).
 - **La conexión en vivo NO está verificada desde aquí.** Mi entorno
   bloquea el WebSocket de WhatsApp, así que en mi prueba el bot no pudo
   llegar a mostrar el QR. El código carga bien y la lógica está probada
-  (53 casos con `npm test`), pero la primera conexión real la haces tú en tu
+  (78 casos con `npm test`), pero la primera conexión real la haces tú en tu
   compu escaneando el QR. Si al arrancar no sale el QR, revisa tu internet
   y que Node.js sea 20 o más.
 - **Si apagas la compu, el bot se apaga.** Para que esté 24/7 necesitas

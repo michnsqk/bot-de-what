@@ -11,7 +11,7 @@ const {
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } = require('@whiskeysockets/baileys')
-const { reglas } = require('./respuestas')
+const { reglas, extraerTexto } = require('./respuestas')
 const config = require('./config')
 const asistencia = require('./asistencia')
 const avisos = require('./avisos')
@@ -27,7 +27,10 @@ function programarReconexion() {
   console.log('Conexión perdida, reintentando en', config.esperaReconexionMs / 1000, 'segundos...')
   setTimeout(() => {
     reconectando = false
-    iniciar()
+    iniciar().catch((err) => {
+      console.error('No se pudo arrancar el bot:', err.message)
+      programarReconexion()
+    })
   }, config.esperaReconexionMs)
 }
 
@@ -88,6 +91,8 @@ async function iniciar() {
     if (connection === 'open') {
       console.log('Bot conectado como:', sock.user?.id)
       console.log('Listo. Solo responde en grupos. Equipo:', config.nombreEquipo)
+      const { evento } = asistencia.lista()
+      console.log('Próximo evento:', evento.nombre, evento.hora ? `(${evento.hora})` : '')
       avisos.programarAvisos(sock, config)
     }
   })
@@ -107,9 +112,7 @@ async function iniciar() {
         console.log('Grupo detectado:', chatId, '(ahí se mandarán los avisos)')
       }
 
-      const texto = msg.message?.conversation
-        || msg.message?.extendedTextMessage?.text
-        || ''
+      const texto = extraerTexto(msg)
       if (!texto) continue
 
       // Fase 2 — Asistencia. Se revisa ANTES que las preguntas frecuentes:
@@ -130,13 +133,27 @@ async function iniciar() {
           ? `Listo, ${nombre}. Te quité de la lista del ${r.evento.nombre}.`
           : `No estabas anotado para el ${r.evento.nombre}, ${nombre}.`
       } else if (intencion === 'lista') {
-        const r = asistencia.lista()
+        // "lista" sola: el próximo evento. "lista del juego" o "lista del
+        // entreno": ese evento aunque no sea el próximo.
+        const limpio = normalizar(texto)
+        let eventoFijo = null
+        if (limpio.includes('juego') || limpio.includes('domingo') || limpio.includes('partido')) {
+          eventoFijo = asistencia.proximoJuego()
+        } else if (limpio.includes('entreno')) {
+          eventoFijo = asistencia.proximoEntreno()
+        }
+        const r = asistencia.lista(undefined, undefined, eventoFijo)
         respuesta = r.total === 0
           ? `Para el ${r.evento.nombre} nadie ha confirmado todavía. Escribe "voy" para anotarte.`
           : `Para el ${r.evento.nombre} van ${r.total}:\n${r.nombres.map((n, i) => `${i + 1}. ${n}`).join('\n')}`
       }
 
-      // Fase 1 — Preguntas frecuentes (solo si no era asistencia).
+      // "¿Cuándo es el próximo juego?" — responde con el evento real.
+      if (!respuesta && asistencia.esPreguntaProximo(normalizar(texto))) {
+        respuesta = asistencia.mensajeProximo()
+      }
+
+      // Fase 1 — Preguntas frecuentes (solo si no era asistencia ni próximo).
       if (!respuesta) respuesta = buscarRespuesta(texto)
       if (!respuesta) continue // si no sabe la respuesta, no contesta
 
@@ -150,4 +167,9 @@ async function iniciar() {
   })
 }
 
-iniciar()
+// Si arrancar falla (por ejemplo, sin internet), reintenta en 5 segundos
+// en lugar de morirse.
+iniciar().catch((err) => {
+  console.error('No se pudo arrancar el bot:', err.message)
+  programarReconexion()
+})

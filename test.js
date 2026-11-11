@@ -5,7 +5,7 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const { reglas } = require('./respuestas')
+const { reglas, extraerTexto } = require('./respuestas')
 const A = require('./asistencia')
 const V = require('./avisos')
 const cron = require('node-cron')
@@ -39,6 +39,7 @@ async function main() {
     ['juegos el domingo', 'domingos'],
     ['donde es la cancha', 'ubicación'],
     ['cuánto cuesta por clase', 'Por clase'],
+    ['quién es el coach', 'Javier'],
     ['algo random sin sentido', null],
   ]
   for (const [msg, expected] of faq) {
@@ -77,8 +78,44 @@ async function main() {
   check(di('hola') === null, 'intención: hola -> null (lo atiende FAQ)')
   check(di('voy, ¿cuánto cuesta?') === 'confirmar', 'intención: voy + costos -> confirmar (asistencia primero)')
 
-  // 4. Flujo confirmar/cancelar/lista (Fase 2).
+  // 3b. Próximo evento: qué es, cuándo es el próximo juego/entreno.
   const ahora = new Date('2026-11-10T10:00:00-06:00')
+  const esP = (t) => A.esPreguntaProximo(norm(t))
+  check(esP('¿cuándo es el próximo juego?') === true, 'próximo: ¿cuándo es el próximo juego?')
+  check(esP('qué sigue') === true, 'próximo: qué sigue')
+  check(esP('cuál es el siguiente entreno') === true, 'próximo: siguiente entreno')
+  check(esP('¿a qué hora entrenan?') === false, 'próximo: ¿a qué hora entrenan? -> no (es horario)')
+  check(esP('¿cuánto cuesta?') === false, 'próximo: ¿cuánto cuesta? -> no')
+  const mP1 = A.mensajeProximo(ahora, tmpA)
+  check(mP1.includes('entreno del martes, 10 de noviembre') && mP1.includes('Van 0 confirmados'), 'mensaje próximo: entreno de hoy sin confirmados aún')
+  const mP2 = A.mensajeProximo(new Date('2026-11-14T12:00:00-06:00'), tmpA)
+  check(mP2.includes('juego del domingo, 15 de noviembre') && mP2.includes('Van 0 confirmados'), 'mensaje próximo: juego del domingo sin confirmados')
+  check(A.proximoJuego(new Date('2026-11-10T10:00:00-06:00')).clave === 'juego-2026-11-15', 'próximo juego desde martes -> domingo')
+  check(A.proximoEntreno(new Date('2026-11-10T10:00:00-06:00')).clave === 'entreno-2026-11-10', 'próximo entreno martes 10am -> hoy')
+  check(A.proximoEntreno(new Date('2026-11-10T18:00:00-06:00')).clave === 'entreno-2026-11-11', 'próximo entreno martes 6pm -> mié')
+  check(A.proximoJuego(new Date('2026-11-15T12:00:00-06:00')).clave === 'juego-2026-11-15', 'próximo juego domingo -> hoy')
+  // "lista del juego" y "lista del entreno" muestran ese evento, no el próximo.
+  const tmpA3b = path.join(tmpDir, 'asistencia-3b.json')
+  A.confirmar('5215522222222@s.whatsapp.net', 'Javier', new Date('2026-11-14T12:00:00-06:00'), tmpA3b)
+  A.confirmar('5215511111111@s.whatsapp.net', 'Mich', ahora, tmpA3b)
+  const lj = A.lista(ahora, tmpA3b, A.proximoJuego(ahora))
+  check(lj.total === 1 && lj.evento.tipo === 'juego', 'lista del juego: trae la lista del domingo')
+  const le = A.lista(ahora, tmpA3b, A.proximoEntreno(ahora))
+  check(le.total === 1 && le.evento.tipo === 'entreno', 'lista del entreno: trae la lista de hoy')
+
+  // 3c. El menú ya trae los comandos nuevos.
+  const menu = reglas.find((r) => r.claves.includes('menu')).respuesta
+  check(menu.includes('próximo') && menu.includes('coach'), 'menú: trae próximo y coach')
+
+  // 3d. Leer el texto venga como venga: texto, respuesta, pie de foto/video.
+  check(extraerTexto({ message: { conversation: 'hola' } }) === 'hola', 'texto: mensaje normal')
+  check(extraerTexto({ message: { extendedTextMessage: { text: 'horario' } } }) === 'horario', 'texto: respuesta a otro mensaje')
+  check(extraerTexto({ message: { imageMessage: { caption: 'costos' } } }) === 'costos', 'texto: pie de foto')
+  check(extraerTexto({ message: { videoMessage: { caption: 'voy' } } }) === 'voy', 'texto: pie de video')
+  check(extraerTexto({ message: { stickerMessage: {} } }) === '', 'texto: sticker sin texto -> vacío')
+  check(extraerTexto({ message: {} }) === '', 'texto: mensaje sin texto -> vacío')
+
+  // 4. Flujo confirmar/cancelar/lista (Fase 2).
   let r = A.confirmar('5215511111111@s.whatsapp.net', 'Mich', ahora, tmpA)
   check(r.estado === 'nuevo' && r.total === 1, 'confirmar Mich -> nuevo, total 1')
   r = A.confirmar('5215511111111@s.whatsapp.net', 'Mich', ahora, tmpA)
@@ -154,6 +191,51 @@ async function main() {
   check(recibidos1.length === 0, 'la conexión vieja ya no recibe avisos')
   check(recibidos2[0] && recibidos2[0].includes('Hoy entrenamos'), 'el aviso tras reconexión trae el texto correcto')
   require.cache[rutaAsistencia] = realAsistencia
+
+  // 8. Una hora inválida en config no tumba el bot: se registra el error y
+  // el otro aviso sigue funcionando.
+  const tmpG3 = path.join(tmpDir, 'grupos3.json')
+  fs.writeFileSync(tmpG3, JSON.stringify(['222@g.us']))
+  process.env.GRUPOS_ARCHIVO = tmpG3
+  require.cache[rutaAsistencia] = {
+    exports: {
+      lista: () => ({
+        evento: { tipo: 'entreno', nombre: 'entreno del martes 11 de noviembre', hora: '3:30 a 5:30 pm' },
+        total: 2,
+      }),
+    },
+  }
+  delete require.cache[require.resolve('./avisos')]
+  const V3 = require('./avisos')
+  const recibidos3 = []
+  const sock3 = { sendMessage: async (chatId, m) => { recibidos3.push(m.text) } }
+  let noTumbo = true
+  try {
+    V3.programarAvisos(sock3, {
+      recordatorioEntreno: '* * * * * *',
+      recordatorioJuego: 'basura-no-es-cron',
+      zonaHoraria: 'America/Mexico_City',
+      grupoId: null,
+    })
+  } catch { noTumbo = false }
+  check(noTumbo, 'hora inválida en config no tumba el bot')
+  await sleep(2500)
+  check(recibidos3.length >= 1, `el aviso válido sigue funcionando aunque el otro sea inválido (${recibidos3.length} avisos)`)
+  require.cache[rutaAsistencia] = realAsistencia
+
+  // 9. Escrituras atómicas: 20 confirmaciones rápidas no corrompen el archivo.
+  const tmpA2 = path.join(tmpDir, 'asistencia2.json')
+  const fechaAtom = new Date('2026-11-10T10:00:00-06:00')
+  for (let i = 0; i < 20; i++) {
+    A.confirmar(`52155000000${String(i).padStart(2, '0')}@s.whatsapp.net`, `Persona${i}`, fechaAtom, tmpA2)
+  }
+  let atomOk = false
+  try {
+    const datos = JSON.parse(fs.readFileSync(tmpA2, 'utf8'))
+    atomOk = datos['entreno-2026-11-10'].length === 20
+  } catch { atomOk = false }
+  check(atomOk, '20 confirmaciones rápidas: archivo válido con 20 personas')
+  check(!fs.existsSync(`${tmpA2}.tmp`), 'no quedan archivos temporales tras escribir')
 
   fs.rmSync(tmpDir, { recursive: true, force: true })
   console.log(fails === 0 ? `TODAS LAS PRUEBAS PASAN (${total}/${total})` : `${fails} FALLOS de ${total}`)

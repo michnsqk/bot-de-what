@@ -37,7 +37,10 @@ function registrarGrupo(chatId, archivo = ARCHIVO_GRUPOS) {
   if (grupos.includes(chatId)) return false
   grupos.push(chatId)
   fs.mkdirSync(path.dirname(archivo), { recursive: true })
-  fs.writeFileSync(archivo, JSON.stringify(grupos, null, 2) + '\n')
+  // Escritura atómica: primero a un temporal y luego se renombra.
+  const tmp = `${archivo}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(grupos, null, 2) + '\n')
+  fs.renameSync(tmp, archivo)
   return true
 }
 
@@ -79,19 +82,27 @@ function programarAvisos(sock, config) {
   if (programado) return
   programado = true
 
-  cron.schedule(config.recordatorioEntreno, async () => {
-    if (!sockActual) return
-    const { evento, total } = asistencia.lista()
-    if (evento.tipo !== 'entreno') return // por si el cron y el evento no coinciden
-    await enviarATodos(sockActual, mensajeRecordatorioEntreno(evento, total), config)
-  }, { timezone: config.zonaHoraria })
+  if (!cron.validate(config.recordatorioEntreno)) {
+    console.error('Aviso de entreno: la hora en config no es válida:', config.recordatorioEntreno)
+  } else {
+    cron.schedule(config.recordatorioEntreno, async () => {
+      if (!sockActual) return
+      const { evento, total } = asistencia.lista()
+      if (evento.tipo !== 'entreno') return // por si el cron y el evento no coinciden
+      await enviarATodos(sockActual, mensajeRecordatorioEntreno(evento, total), config)
+    }, { timezone: config.zonaHoraria })
+  }
 
-  cron.schedule(config.recordatorioJuego, async () => {
-    if (!sockActual) return
-    const { evento, total } = asistencia.lista()
-    if (evento.tipo !== 'juego') return
-    await enviarATodos(sockActual, mensajeRecordatorioJuego(evento, total), config)
-  }, { timezone: config.zonaHoraria })
+  if (!cron.validate(config.recordatorioJuego)) {
+    console.error('Aviso de juego: la hora en config no es válida:', config.recordatorioJuego)
+  } else {
+    cron.schedule(config.recordatorioJuego, async () => {
+      if (!sockActual) return
+      const { evento, total } = asistencia.lista()
+      if (evento.tipo !== 'juego') return
+      await enviarATodos(sockActual, mensajeRecordatorioJuego(evento, total), config)
+    }, { timezone: config.zonaHoraria })
+  }
 
   console.log('Avisos programados: entreno', config.recordatorioEntreno, '| juego', config.recordatorioJuego, '| zona', config.zonaHoraria)
 }
