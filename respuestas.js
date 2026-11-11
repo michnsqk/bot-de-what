@@ -11,7 +11,10 @@ const MENU = '🏀 Bot del equipo\n'
   + '• horario — entrenamientos y juegos\n'
   + '• costos — mensualidad, semana y por clase\n'
   + '• juegos — partidos del domingo\n'
-  + '• ubicación — dónde entrenamos'
+  + '• ubicación — dónde entrenamos\n'
+  + '• voy — confirmar asistencia al próximo evento\n'
+  + '• no voy — quitarme de la lista\n'
+  + '• lista — ver quiénes van al próximo evento'
 
 // Cada regla: si el mensaje contiene alguna de sus claves, el bot
 // responde con ese texto. Si ninguna regla coincide, el bot no contesta

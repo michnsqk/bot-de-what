@@ -16,6 +16,21 @@ en `config.js`.
 - **ubicación** — Aún no cargada: el bot dice que le pregunten al coach.
 - **menu / ayuda / hola** — Muestra el menú.
 
+## Asistencia (Fase 2)
+
+- **voy** — Te anota para el próximo evento. "Voy" solo significa el
+  próximo evento: si es lunes a viernes antes de las 5:30 pm, el entreno
+  de hoy; si ya pasó la hora, el del día siguiente; el sábado, el juego
+  del domingo. Cada quien se anota una sola vez.
+- **no voy** — Te quita de la lista del próximo evento.
+- **lista** — Muestra quiénes van al próximo evento.
+
+La asistencia se guarda en `asistencia.json` (un archivo, sin base de
+datos). Ese archivo **nunca se sube al repo**: tiene nombres y teléfonos
+del equipo. Si quieres empezar de cero, borra el archivo y el bot crea
+otro en la siguiente confirmación. La lista es por evento: cada día tiene
+su propia lista.
+
 ## Cómo correrlo
 
 Requisitos: Node.js 20 o más, y el teléfono del equipo.

@@ -12,6 +12,7 @@ const {
 } = require('@whiskeysockets/baileys')
 const { reglas } = require('./respuestas')
 const config = require('./config')
+const asistencia = require('./asistencia')
 
 const logger = pino({ level: 'silent' })
 
@@ -100,7 +101,32 @@ async function iniciar() {
         || ''
       if (!texto) continue
 
-      const respuesta = buscarRespuesta(texto)
+      // Fase 2 — Asistencia. Se revisa ANTES que las preguntas frecuentes:
+      // "voy al entreno" es confirmar asistencia, no preguntar el horario.
+      // Quien escribe es msg.key.participant en grupos (su número).
+      const remitente = msg.key.participant || msg.key.remoteJid
+      const nombre = msg.pushName || remitente.split('@')[0]
+      const intencion = asistencia.detectarIntencion(normalizar(texto))
+      let respuesta = null
+      if (intencion === 'confirmar') {
+        const r = asistencia.confirmar(remitente, nombre)
+        respuesta = r.estado === 'nuevo'
+          ? `Listo, ${nombre}. Te anoté para el ${r.evento.nombre}${r.evento.hora ? ` (${r.evento.hora})` : ''}. Van ${r.total} hasta ahora.`
+          : `Ya estabas anotado para el ${r.evento.nombre}, ${nombre}.`
+      } else if (intencion === 'cancelar') {
+        const r = asistencia.cancelar(remitente)
+        respuesta = r.estado === 'quitado'
+          ? `Listo, ${nombre}. Te quité de la lista del ${r.evento.nombre}.`
+          : `No estabas anotado para el ${r.evento.nombre}, ${nombre}.`
+      } else if (intencion === 'lista') {
+        const r = asistencia.lista()
+        respuesta = r.total === 0
+          ? `Para el ${r.evento.nombre} nadie ha confirmado todavía. Escribe "voy" para anotarte.`
+          : `Para el ${r.evento.nombre} van ${r.total}:\n${r.nombres.map((n, i) => `${i + 1}. ${n}`).join('\n')}`
+      }
+
+      // Fase 1 — Preguntas frecuentes (solo si no era asistencia).
+      if (!respuesta) respuesta = buscarRespuesta(texto)
       if (!respuesta) continue // si no sabe la respuesta, no contesta
 
       try {
