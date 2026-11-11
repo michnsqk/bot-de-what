@@ -2,7 +2,7 @@
 // "voy" anota a la persona para el próximo evento; "no voy" la quita;
 // "lista" muestra quiénes van.
 //
-// Dónde se guarda: asistencia.json, en esta misma carpeta. Es un archivo
+// Dónde se guarda: data/asistencia.json. Es un archivo
 // simple (sin base de datos): la clave es el evento
 // ("entreno-2026-11-11" o "juego-2026-11-15") y el valor es la lista de
 // personas { telefono, nombre }.
@@ -26,7 +26,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const ARCHIVO = process.env.ASISTENCIA_ARCHIVO || path.join(__dirname, 'asistencia.json')
+const ARCHIVO = process.env.ASISTENCIA_ARCHIVO || path.join(__dirname, 'data', 'asistencia.json')
 
 // Palabras que activan cada intención. Se revisan en este orden:
 // cancelar primero ("no voy" contiene "voy"), luego confirmar, luego lista.
@@ -37,14 +37,11 @@ const INTENCIONES = {
 }
 
 // Detecta la intención en un texto ya normalizado (minúsculas, sin acentos).
-// "voy" se busca como palabra completa: "voy al entreno" sí, "voy" solo sí.
-// Ojo: "me voy de vacaciones" también cuenta como confirmar; en el grupo
-// del equipo casi nadie escribe eso, y si pasa, se quita con "no voy".
 function detectarIntencion(texto) {
   for (const clave of INTENCIONES.cancelar) {
     if (texto.includes(clave)) return 'cancelar'
   }
-  if (/\bvoy\b/.test(texto)) return 'confirmar'
+  if (esConfirmar(texto)) return 'confirmar'
   for (const clave of INTENCIONES.confirmar) {
     if (texto.includes(clave)) return 'confirmar'
   }
@@ -54,41 +51,84 @@ function detectarIntencion(texto) {
   return null
 }
 
-// El próximo evento a partir de una fecha (por defecto: ahora).
+// ¿El mensaje confirma asistencia? "voy" solo, "yo voy", "voy al entreno".
+// "me voy de vacaciones" o "ya me voy" es irse, NO confirmar...
+// ...salvo "me voy al entreno/juego" o "me voy a entrenar": ir al evento
+// sí es confirmar.
+function esConfirmar(texto) {
+  if (!/\bvoy\b/.test(texto)) return false
+  if (/me\s+voy\b/.test(texto)
+    && !/me\s+voy\s+al\b/.test(texto)
+    && !/me\s+voy\s+a\s/.test(texto)) return false
+  return true
+}
+
+// "Ahora" en hora de México, sin importar la zona del servidor.
+// En Railway el servidor está en UTC: las 13:00 de México son las 19:00 UTC,
+// y sin esto un "voy" de la 1 pm caería en el evento del día siguiente.
+// Se lee con Intl (fecha civil de México) y se avanza de día en día en UTC,
+// así el resultado no depende de dónde corra el bot.
+const ZONA_MEXICO = 'America/Mexico_City'
+
+function partesMexico(ahora = new Date()) {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: ZONA_MEXICO,
+    weekday: 'short',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(ahora)
+  const get = (t) => partes.find((p) => p.type === t).value
+  const dias = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return {
+    diaSemana: dias[get('weekday')],
+    minutos: Number(get('hour')) * 60 + Number(get('minute')),
+    y: Number(get('year')),
+    m: Number(get('month')),
+    d: Number(get('day')),
+  }
+}
+
+// El próximo evento a partir de una fecha (por defecto: ahora, en México).
 // Devuelve { tipo, clave, nombre, hora } o null si algo raro pasa.
 function proximoEvento(ahora = new Date()) {
-  const fecha = new Date(ahora)
+  let { y, m, d, diaSemana, minutos } = partesMexico(ahora)
   for (let i = 0; i < 8; i++) {
-    const dia = fecha.getDay() // 0 dom, 1 lun, ..., 6 sáb
+    const dia = diaSemana // 0 dom, 1 lun, ..., 6 sáb
     const esDomingo = dia === 0
     const esEntreno = dia >= 1 && dia <= 5 // lun–vie
     if (esDomingo || esEntreno) {
       if (i === 0 && esEntreno) {
         // Hoy es entreno: solo vale si aún no terminó (antes de las 5:30 pm).
-        const minutos = fecha.getHours() * 60 + fecha.getMinutes()
-        if (minutos < 17 * 60 + 30) return armarEvento(fecha, 'entreno')
+        if (minutos < 17 * 60 + 30) return armarEvento({ y, m, d }, 'entreno')
         // Ya terminó: sigue buscando el siguiente día.
       } else {
-        return armarEvento(fecha, esDomingo ? 'juego' : 'entreno')
+        return armarEvento({ y, m, d }, esDomingo ? 'juego' : 'entreno')
       }
     }
-    fecha.setDate(fecha.getDate() + 1)
+    // Avanza un día (en UTC para no depender de la zona del servidor).
+    const sig = new Date(Date.UTC(y, m - 1, d + 1))
+    y = sig.getUTCFullYear()
+    m = sig.getUTCMonth() + 1
+    d = sig.getUTCDate()
+    diaSemana = sig.getUTCDay()
   }
   return null
 }
 
-function armarEvento(fecha, tipo) {
-  const y = fecha.getFullYear()
-  const m = String(fecha.getMonth() + 1).padStart(2, '0')
-  const d = String(fecha.getDate()).padStart(2, '0')
+function armarEvento({ y, m, d }, tipo) {
   const etiqueta = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'UTC',
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  }).format(fecha)
+  }).format(new Date(Date.UTC(y, m - 1, d)))
   return {
     tipo,
-    clave: `${tipo}-${y}-${m}-${d}`,
+    clave: `${tipo}-${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
     nombre: tipo === 'entreno' ? `entreno del ${etiqueta}` : `juego del ${etiqueta}`,
     hora: tipo === 'entreno' ? '3:30 a 5:30 pm' : null,
   }
@@ -103,6 +143,7 @@ function cargar(archivo = ARCHIVO) {
 }
 
 function guardar(datos, archivo = ARCHIVO) {
+  fs.mkdirSync(path.dirname(archivo), { recursive: true })
   fs.writeFileSync(archivo, JSON.stringify(datos, null, 2) + '\n')
 }
 

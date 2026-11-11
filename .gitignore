@@ -1,4 +1,2 @@
 node_modules/
-auth/
-asistencia.json
-grupos.json
+data/

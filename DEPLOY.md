@@ -13,8 +13,9 @@ un servidor. La forma más simple es Railway.
    arranque es `npm start` (ya está en `package.json`).
 4. **El paso importante: el volumen.** Sin esto, cada redeploy borra la
    sesión y hay que escanear el QR otra vez. En el servicio → pestaña
-   **Settings → Volumes → New Volume**, ruta `/app/auth`. Ahí vive la
-   sesión del número del equipo y sobrevive a reinicios y redeploys.
+   **Settings → Volumes → New Volume**, ruta `/app/data`. Ahí viven la
+   sesión del número del equipo, la lista de asistencia y los grupos:
+   todo sobrevive a reinicios y redeploys.
 5. Espera a que el deploy termine y abre los logs (**Deployments → View
    Logs**). Debe salir el QR del bot.
 6. Escanea el QR con el teléfono del equipo (WhatsApp → Dispositivos
@@ -45,6 +46,9 @@ Dockerfile de este repo; es más trabajo de configurar.
 - El `Dockerfile` de este repo está escrito pero **no se probó construirlo
   aquí** (en este entorno no hay Docker). Railway lo construye al
   desplegar; si la construcción falla, el log del deploy dice qué pasó.
-- `asistencia.json` y `grupos.json` viven en el servidor (no se suben al
-  repo). Si borras el servicio, se pierden las listas: es solo un archivo,
-  no una base de datos.
+- `asistencia.json` y `grupos.json` viven en el volumen (`/app/data`),
+  así que sobreviven a los redeploys. Si borras el servicio y su volumen,
+  se pierden las listas: son solo archivos, no una base de datos.
+- Railway puede quejarse de que el servicio no expone un puerto: ignóralo.
+  El bot no es una página web, es un proceso que escucha WhatsApp; no
+  necesita puerto.

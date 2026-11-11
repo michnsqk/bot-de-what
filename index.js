@@ -2,6 +2,7 @@
 // Librería: Baileys v7 (no oficial, por QR). Solo responde en grupos.
 
 const qrcode = require('qrcode-terminal')
+const fs = require('fs')
 const pino = require('pino')
 const { Boom } = require('@hapi/boom')
 const makeWASocket = require('@whiskeysockets/baileys').default
@@ -50,7 +51,10 @@ function buscarRespuesta(texto) {
 }
 
 async function iniciar() {
-  const { state, saveCreds } = await useMultiFileAuthState('auth')
+  // La sesión y los datos viven en data/ (en el servidor, esa carpeta es
+  // el volumen: sobrevive a reinicios y redeploys).
+  fs.mkdirSync('data/auth', { recursive: true })
+  const { state, saveCreds } = await useMultiFileAuthState('data/auth')
   const { version } = await fetchLatestBaileysVersion()
 
   const sock = makeWASocket({
@@ -75,7 +79,7 @@ async function iniciar() {
         ? lastDisconnect.error.output?.statusCode
         : null
       if (codigo === DisconnectReason.loggedOut) {
-        console.log('Sesión cerrada. Borra la carpeta auth/ y vuelve a escanear el QR.')
+        console.log('Sesión cerrada. Borra la carpeta data/auth/ y vuelve a escanear el QR.')
       } else {
         programarReconexion()
       }

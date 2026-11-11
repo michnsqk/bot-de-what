@@ -25,7 +25,7 @@ en `config.js`.
 - **no voy** — Te quita de la lista del próximo evento.
 - **lista** — Muestra quiénes van al próximo evento.
 
-La asistencia se guarda en `asistencia.json` (un archivo, sin base de
+La asistencia se guarda en `data/asistencia.json` (un archivo, sin base de
 datos). Ese archivo **nunca se sube al repo**: tiene nombres y teléfonos
 del equipo. Si quieres empezar de cero, borra el archivo y el bot crea
 otro en la siguiente confirmación. La lista es por evento: cada día tiene
@@ -45,7 +45,7 @@ en `config.js` (`recordatorioEntreno` y `recordatorioJuego`, formato cron,
 zona `America/Mexico_City`).
 
 El bot aprende el grupo solo: cuando alguien escribe en el grupo, guarda
-su ID en `grupos.json` (tampoco se sube al repo) y ahí manda los avisos.
+su ID en `data/grupos.json` (tampoco se sube al repo) y ahí manda los avisos.
 También puedes pegar el ID a mano en `config.grupoId`.
 
 **Ojo:** el aviso solo sale si el bot está prendido a esa hora. Si la
@@ -55,10 +55,10 @@ compu está apagada, no hay aviso. Por eso existe la Fase 4.
 
 Para que el bot no se apague con tu compu, vive en un servidor. Los pasos
 están en `DEPLOY.md` (Railway, lo más simple). Lo importante: hay que
-crear un volumen en `/app/auth` para que la sesión sobreviva a los
-reinicios; sin volumen, cada redeploy pide escanear el QR otra vez. El
-despliegue en sí lo haces tú con tu cuenta (ahí se escanea el QR con el
-teléfono del equipo).
+crear un volumen en `/app/data` para que la sesión y los datos sobrevivan
+a los reinicios; sin volumen, cada redeploy pide escanear el QR otra vez y
+se borran las listas. El despliegue en sí lo haces tú con tu cuenta (ahí
+se escanea el QR con el teléfono del equipo).
 
 ## Cómo correrlo
 
@@ -72,19 +72,22 @@ node index.js
 1. Al arrancar muestra un QR en la terminal.
 2. En el teléfono del equipo: WhatsApp > Dispositivos vinculados >
    Vincular un dispositivo, y escanea el QR.
-3. La sesión queda guardada en la carpeta `auth/`. La próxima vez que
+3. La sesión queda guardada en la carpeta `data/auth/`. La próxima vez que
    arranques ya no pide QR.
 
 **Prueba primero en un grupo de prueba**: crea un grupo con el número del
 equipo y tu número, escribe "horario" y "costos", y revisa que responda
 bien antes de dejarlo en el grupo real de 30 personas.
 
+Para probar la lógica sin conectar WhatsApp: `npm test` (53 casos:
+respuestas, asistencia, avisos y reconexión).
+
 ## Cosas honestas que debes saber
 
 - **La conexión en vivo NO está verificada desde aquí.** Mi entorno
   bloquea el WebSocket de WhatsApp, así que en mi prueba el bot no pudo
-  llegar a mostrar el QR. El código carga bien y las respuestas están
-  probadas (11/11 casos), pero la primera conexión real la haces tú en tu
+  llegar a mostrar el QR. El código carga bien y la lógica está probada
+  (53 casos con `npm test`), pero la primera conexión real la haces tú en tu
   compu escaneando el QR. Si al arrancar no sale el QR, revisa tu internet
   y que Node.js sea 20 o más.
 - **Si apagas la compu, el bot se apaga.** Para que esté 24/7 necesitas
@@ -95,9 +98,9 @@ bien antes de dejarlo en el grupo real de 30 personas.
   chateando desde su teléfono mientras el bot corre.
 - **Riesgo de bloqueo.** Baileys no es oficial y va contra las reglas de
   WhatsApp: el número puede ser bloqueado temporal o permanentemente. El
-  coach ya eligió esta opción sabiéndolo. No compartas la carpeta `auth/`
-  con nadie: es la sesión del número del equipo.
-- **Si WhatsApp cierra la sesión**, borra la carpeta `auth/` y vuelve a
+  coach ya eligió esta opción sabiéndolo. No compartas la carpeta
+  `data/auth/` con nadie: es la sesión del número del equipo.
+- **Si WhatsApp cierra la sesión**, borra la carpeta `data/auth/` y vuelve a
   escanear el QR.
 
 ## Cómo actualizar la info

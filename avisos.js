@@ -6,7 +6,7 @@
 //
 // Para mandar el aviso el bot necesita saber el grupo. Hay dos formas:
 // 1. Solo: cuando alguien escribe en el grupo, el bot guarda su ID en
-//    grupos.json y ahí manda los avisos. El ID sale en la consola como
+//    data/grupos.json y ahí manda los avisos. El ID sale en la consola como
 //    "Grupo detectado".
 // 2. A mano: pega el ID del grupo en config.grupoId.
 //
@@ -20,7 +20,7 @@ const path = require('path')
 const cron = require('node-cron')
 const asistencia = require('./asistencia')
 
-const ARCHIVO_GRUPOS = process.env.GRUPOS_ARCHIVO || path.join(__dirname, 'grupos.json')
+const ARCHIVO_GRUPOS = process.env.GRUPOS_ARCHIVO || path.join(__dirname, 'data', 'grupos.json')
 
 function cargarGrupos(archivo = ARCHIVO_GRUPOS) {
   try {
@@ -36,6 +36,7 @@ function registrarGrupo(chatId, archivo = ARCHIVO_GRUPOS) {
   const grupos = cargarGrupos(archivo)
   if (grupos.includes(chatId)) return false
   grupos.push(chatId)
+  fs.mkdirSync(path.dirname(archivo), { recursive: true })
   fs.writeFileSync(archivo, JSON.stringify(grupos, null, 2) + '\n')
   return true
 }
@@ -67,23 +68,29 @@ async function enviarATodos(sock, texto, config) {
   }
 }
 
-// Programa los dos avisos. Se llama una sola vez, al conectarse.
+// Programa los dos avisos. Se programa una sola vez, pero la conexión se
+// actualiza en cada llamada: si el bot se cae y se reconecta, los avisos
+// deben usar la conexión nueva, no la vieja (que ya está muerta).
 // El conteo de confirmados se lee en el momento de mandar el aviso.
+let sockActual = null
 let programado = false
 function programarAvisos(sock, config) {
+  sockActual = sock
   if (programado) return
   programado = true
 
   cron.schedule(config.recordatorioEntreno, async () => {
+    if (!sockActual) return
     const { evento, total } = asistencia.lista()
     if (evento.tipo !== 'entreno') return // por si el cron y el evento no coinciden
-    await enviarATodos(sock, mensajeRecordatorioEntreno(evento, total), config)
+    await enviarATodos(sockActual, mensajeRecordatorioEntreno(evento, total), config)
   }, { timezone: config.zonaHoraria })
 
   cron.schedule(config.recordatorioJuego, async () => {
+    if (!sockActual) return
     const { evento, total } = asistencia.lista()
     if (evento.tipo !== 'juego') return
-    await enviarATodos(sock, mensajeRecordatorioJuego(evento, total), config)
+    await enviarATodos(sockActual, mensajeRecordatorioJuego(evento, total), config)
   }, { timezone: config.zonaHoraria })
 
   console.log('Avisos programados: entreno', config.recordatorioEntreno, '| juego', config.recordatorioJuego, '| zona', config.zonaHoraria)
