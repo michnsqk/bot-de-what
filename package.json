@@ -1,0 +1,1 @@
+{"dependencies":{"@hapi/boom":"^10.0.1","@whiskeysockets/baileys":"^7.0.0-rc14","pino":"^9.0.0","qrcode-terminal":"^0.12.0"},"description":"Bot de WhatsApp para el equipo de básquetbol (Baileys, solo responde en grupos)","main":"index.js","name":"chatbot-basquet","scripts":{"start":"node index.js"},"version":"1.0.0"}
