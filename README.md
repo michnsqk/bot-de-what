@@ -31,6 +31,35 @@ del equipo. Si quieres empezar de cero, borra el archivo y el bot crea
 otro en la siguiente confirmación. La lista es por evento: cada día tiene
 su propia lista.
 
+## Avisos programados (Fase 3)
+
+El bot manda solo dos avisos por semana, al grupo del equipo:
+
+- **Entreno:** lunes a viernes a la 1:00 pm. "Hoy entrenamos... Confirma
+  con 'voy'."
+- **Juego:** sábado a las 6:00 pm. "Mañana es el juego... Confirma con
+  'voy'."
+
+El aviso dice cuántos van confirmados hasta ahora. Las horas se cambian
+en `config.js` (`recordatorioEntreno` y `recordatorioJuego`, formato cron,
+zona `America/Mexico_City`).
+
+El bot aprende el grupo solo: cuando alguien escribe en el grupo, guarda
+su ID en `grupos.json` (tampoco se sube al repo) y ahí manda los avisos.
+También puedes pegar el ID a mano en `config.grupoId`.
+
+**Ojo:** el aviso solo sale si el bot está prendido a esa hora. Si la
+compu está apagada, no hay aviso. Por eso existe la Fase 4.
+
+## Hosting 24/7 (Fase 4)
+
+Para que el bot no se apague con tu compu, vive en un servidor. Los pasos
+están en `DEPLOY.md` (Railway, lo más simple). Lo importante: hay que
+crear un volumen en `/app/auth` para que la sesión sobreviva a los
+reinicios; sin volumen, cada redeploy pide escanear el QR otra vez. El
+despliegue en sí lo haces tú con tu cuenta (ahí se escanea el QR con el
+teléfono del equipo).
+
 ## Cómo correrlo
 
 Requisitos: Node.js 20 o más, y el teléfono del equipo.

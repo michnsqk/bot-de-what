@@ -13,6 +13,7 @@ const {
 const { reglas } = require('./respuestas')
 const config = require('./config')
 const asistencia = require('./asistencia')
+const avisos = require('./avisos')
 
 const logger = pino({ level: 'silent' })
 
@@ -83,6 +84,7 @@ async function iniciar() {
     if (connection === 'open') {
       console.log('Bot conectado como:', sock.user?.id)
       console.log('Listo. Solo responde en grupos. Equipo:', config.nombreEquipo)
+      avisos.programarAvisos(sock, config)
     }
   })
 
@@ -95,6 +97,11 @@ async function iniciar() {
       const chatId = msg.key?.remoteJid || ''
       if (config.soloGrupos && !chatId.endsWith('@g.us')) continue
       if (msg.key.fromMe) continue
+
+      // Fase 3 — el bot aprende el grupo: ahí mandará los avisos.
+      if (avisos.registrarGrupo(chatId)) {
+        console.log('Grupo detectado:', chatId, '(ahí se mandarán los avisos)')
+      }
 
       const texto = msg.message?.conversation
         || msg.message?.extendedTextMessage?.text
