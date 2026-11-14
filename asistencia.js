@@ -133,6 +133,15 @@ function proximoEntreno(ahora = new Date()) {
   return buscarEvento(ahora, 'entreno')
 }
 
+// ¿Para qué evento es el mensaje? "voy al juego" → 'juego',
+// "lista del entreno" → 'entreno', "voy" solo → null (el próximo).
+// Se usa para confirmar, cancelar y ver la lista de ese evento.
+function eventoPedido(texto) {
+  if (texto.includes('juego') || texto.includes('partido') || texto.includes('domingo')) return 'juego'
+  if (texto.includes('entreno') || texto.includes('entrenar')) return 'entreno'
+  return null
+}
+
 // ¿El mensaje pregunta por el próximo evento? ("¿cuándo es el próximo
 // juego?", "qué sigue", "cuándo jugamos"...). 'cuando' solo no basta:
 // "¿a qué hora entrenan?" es horario, no próximo evento.
@@ -181,10 +190,15 @@ function guardar(datos, archivo = ARCHIVO) {
   fs.renameSync(tmp, archivo)
 }
 
-// Anota a una persona para el próximo evento.
+// Anota a una persona para un evento.
+// tipo: null (el próximo evento), 'entreno' (el próximo entreno) o
+// 'juego' (el próximo juego). Así "voy al juego" anota para el domingo
+// aunque el próximo evento sea un entreno.
 // Devuelve { estado: 'nuevo' | 'ya', evento, total }.
-function confirmar(telefono, nombre, ahora = new Date(), archivo = ARCHIVO) {
-  const evento = proximoEvento(ahora)
+function confirmar(telefono, nombre, ahora = new Date(), archivo = ARCHIVO, tipo = null) {
+  const evento = tipo === 'juego' ? proximoJuego(ahora)
+    : tipo === 'entreno' ? proximoEntreno(ahora)
+    : proximoEvento(ahora)
   const datos = cargar(archivo)
   const lista = datos[evento.clave] || []
   if (lista.some((p) => p.telefono === telefono)) {
@@ -196,10 +210,13 @@ function confirmar(telefono, nombre, ahora = new Date(), archivo = ARCHIVO) {
   return { estado: 'nuevo', evento, total: lista.length }
 }
 
-// Quita a una persona de la lista del próximo evento.
+// Quita a una persona de la lista de un evento.
+// tipo: igual que en confirmar (null = el próximo evento).
 // Devuelve { estado: 'quitado' | 'no-estaba', evento, total }.
-function cancelar(telefono, ahora = new Date(), archivo = ARCHIVO) {
-  const evento = proximoEvento(ahora)
+function cancelar(telefono, ahora = new Date(), archivo = ARCHIVO, tipo = null) {
+  const evento = tipo === 'juego' ? proximoJuego(ahora)
+    : tipo === 'entreno' ? proximoEntreno(ahora)
+    : proximoEvento(ahora)
   const datos = cargar(archivo)
   const lista = datos[evento.clave] || []
   const nueva = lista.filter((p) => p.telefono !== telefono)
@@ -221,4 +238,4 @@ function lista(ahora = new Date(), archivo = ARCHIVO, eventoFijo = null) {
   return { evento, nombres: personas.map((p) => p.nombre), total: personas.length }
 }
 
-module.exports = { detectarIntencion, proximoEvento, proximoJuego, proximoEntreno, esPreguntaProximo, mensajeProximo, confirmar, cancelar, lista }
+module.exports = { detectarIntencion, eventoPedido, proximoEvento, proximoJuego, proximoEntreno, esPreguntaProximo, mensajeProximo, confirmar, cancelar, lista }

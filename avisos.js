@@ -52,12 +52,31 @@ function gruposDestino(config, archivo = ARCHIVO_GRUPOS) {
   return lista
 }
 
-function mensajeRecordatorioEntreno(evento, total) {
-  return `🏀 Hoy entrenamos, ${evento.nombre} (${evento.hora}).\nConfirma con "voy". Van ${total} confirmados hasta ahora. Escribe "lista" para ver quiénes van.`
+// Cuántos van confirmados y quiénes, para los avisos y para !info.
+// Máximo 15 nombres: si son más, se dice cuántos faltan ("y N más").
+function textoConfirmados(total, nombres = []) {
+  if (total === 0) return 'Van 0 confirmados hasta ahora.'
+  const visibles = nombres.slice(0, 15)
+  let texto = `Van ${total} confirmados: ${visibles.join(', ')}`
+  if (nombres.length > 15) texto += ` y ${nombres.length - 15} más`
+  return texto + '.'
 }
 
-function mensajeRecordatorioJuego(evento, total) {
-  return `🏀 Mañana es el ${evento.nombre}.\nConfirma con "voy". Van ${total} confirmados hasta ahora. Escribe "lista" para ver quiénes van.`
+function mensajeRecordatorioEntreno(evento, total, nombres = []) {
+  return `🏀 Hoy entrenamos, ${evento.nombre} (${evento.hora}).\nConfirma con "voy". ${textoConfirmados(total, nombres)} Escribe "lista" para ver quiénes van.`
+}
+
+function mensajeRecordatorioJuego(evento, total, nombres = []) {
+  return `🏀 Mañana es el ${evento.nombre}.\nConfirma con "voy". ${textoConfirmados(total, nombres)} Escribe "lista" para ver quiénes van.`
+}
+
+// Mensaje del recordatorio del próximo evento (el que toque: entreno o
+// juego). Lo usa el comando "!recordatorio" del coach.
+function mensajeRecordatorioProximo(ahora = new Date(), archivo) {
+  const { evento, total, nombres } = asistencia.lista(ahora, archivo)
+  return evento.tipo === 'juego'
+    ? mensajeRecordatorioJuego(evento, total, nombres)
+    : mensajeRecordatorioEntreno(evento, total, nombres)
 }
 
 async function enviarATodos(sock, texto, config) {
@@ -87,9 +106,9 @@ function programarAvisos(sock, config) {
   } else {
     cron.schedule(config.recordatorioEntreno, async () => {
       if (!sockActual) return
-      const { evento, total } = asistencia.lista()
+      const { evento, total, nombres } = asistencia.lista()
       if (evento.tipo !== 'entreno') return // por si el cron y el evento no coinciden
-      await enviarATodos(sockActual, mensajeRecordatorioEntreno(evento, total), config)
+      await enviarATodos(sockActual, mensajeRecordatorioEntreno(evento, total, nombres), config)
     }, { timezone: config.zonaHoraria })
   }
 
@@ -98,13 +117,13 @@ function programarAvisos(sock, config) {
   } else {
     cron.schedule(config.recordatorioJuego, async () => {
       if (!sockActual) return
-      const { evento, total } = asistencia.lista()
+      const { evento, total, nombres } = asistencia.lista()
       if (evento.tipo !== 'juego') return
-      await enviarATodos(sockActual, mensajeRecordatorioJuego(evento, total), config)
+      await enviarATodos(sockActual, mensajeRecordatorioJuego(evento, total, nombres), config)
     }, { timezone: config.zonaHoraria })
   }
 
   console.log('Avisos programados: entreno', config.recordatorioEntreno, '| juego', config.recordatorioJuego, '| zona', config.zonaHoraria)
 }
 
-module.exports = { cargarGrupos, registrarGrupo, gruposDestino, mensajeRecordatorioEntreno, mensajeRecordatorioJuego, programarAvisos }
+module.exports = { cargarGrupos, registrarGrupo, gruposDestino, textoConfirmados, mensajeRecordatorioEntreno, mensajeRecordatorioJuego, mensajeRecordatorioProximo, programarAvisos }

@@ -5,9 +5,11 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const { reglas, extraerTexto } = require('./respuestas')
+const { reglas, extraerTexto, normalizar } = require('./respuestas')
 const A = require('./asistencia')
 const V = require('./avisos')
+const P = require('./pausa')
+const C = require('./coach')
 const cron = require('node-cron')
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bot-test-'))
@@ -21,9 +23,7 @@ function check(ok, label) {
   if (ok) console.log('OK  ', label)
   else { fails++; console.log('FALLO', label) }
 }
-function norm(t) {
-  return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-}
+const norm = normalizar
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
@@ -41,12 +41,37 @@ async function main() {
     ['cuánto cuesta por clase', 'Por clase'],
     ['quién es el coach', 'Javier'],
     ['algo random sin sentido', null],
+    // Ronda 3: inscripción, cuánto debo/es, qué llevar, gracias,
+    // abreviaturas de chat y typos.
+    ['cómo me inscribo', 'cómo inscribirte'],
+    ['quiero entrar al equipo', 'Mensualidad'],
+    ['me quiero unir', 'coach Javier'],
+    ['cómo entro al equipo', 'inscribirte'],
+    ['cuánto debo', 'Mensualidad'],
+    ['cuánto es', 'Mensualidad'],
+    ['qué necesito llevar', 'coach Javier'],
+    ['qué llevo al entreno', 'coach Javier'],
+    ['qué llevo al entrenamiento', 'coach Javier'],
+    ['gracias', 'De nada'],
+    ['gracias, ¿cuánto cuesta?', 'Mensualidad'],
+    ['muchas gracias', 'De nada'],
+    ['q es el horario', 'Entrenamientos'],
+    ['q cuesta la mensualidad', 'Mensualidad'],
+    ['tmb quiero saber el horario', 'Entrenamientos'],
+    ['orario de los entrenamientos', 'Entrenamientos'],
   ]
   for (const [msg, expected] of faq) {
     const limpio = norm(msg)
     const hit = reglas.find((r) => r.claves.some((c) => limpio.includes(c)))
     check(expected ? (hit && hit.respuesta.includes(expected)) : !hit, 'FAQ ' + JSON.stringify(msg))
   }
+
+  // 1b. Normalización: abreviaturas de chat como palabra completa.
+  check(norm('Q es el horario') === 'que es el horario', 'norm: q -> que')
+  check(norm('xq cuesta?') === 'porque cuesta?', 'norm: xq -> porque')
+  check(norm('pq no vienes tmb') === 'porque no vienes tambien', 'norm: pq y tmb')
+  check(norm('QUESO') === 'queso', 'norm: la q dentro de una palabra no se toca')
+  check(norm('¿Cuánto Cuesta?') === '¿cuanto cuesta?', 'norm: minúsculas y sin acentos')
 
   // 2. Próximo evento (Fase 2): con horas explícitas de México (-06:00),
   // así la prueba vale en cualquier zona horaria del servidor.
@@ -73,6 +98,7 @@ async function main() {
   check(di('no voy') === 'cancelar', 'intención: no voy')
   check(di('no puedo ir hoy') === 'cancelar', 'intención: no puedo')
   check(di('quiénes van') === 'lista', 'intención: quiénes van')
+  check(di('quién va') === 'lista', 'intención: quién va')
   check(di('lista') === 'lista', 'intención: lista')
   check(di('¿cuánto cuesta?') === null, 'intención: costos -> null (lo atiende FAQ)')
   check(di('hola') === null, 'intención: hola -> null (lo atiende FAQ)')
@@ -131,6 +157,42 @@ async function main() {
   l = A.lista(new Date('2026-11-11T10:00:00-06:00'), tmpA)
   check(l.total === 0, 'al día siguiente la lista es nueva (vacía)')
 
+  // 4b. Asistencia con objetivo: "voy al juego" anota para el domingo
+  // aunque el próximo evento sea un entreno (y al revés).
+  const tmpA4b = path.join(tmpDir, 'asistencia-4b.json')
+  const martes = new Date('2026-11-10T10:00:00-06:00')
+  check(A.eventoPedido(norm('voy al juego')) === 'juego', 'objetivo: voy al juego -> juego')
+  check(A.eventoPedido(norm('voy al partido')) === 'juego', 'objetivo: voy al partido -> juego')
+  check(A.eventoPedido(norm('voy al entreno')) === 'entreno', 'objetivo: voy al entreno -> entreno')
+  check(A.eventoPedido(norm('me voy a entrenar')) === 'entreno', 'objetivo: me voy a entrenar -> entreno')
+  check(A.eventoPedido(norm('voy')) === null, 'objetivo: voy solo -> null (próximo)')
+  check(A.eventoPedido(norm('lista del juego')) === 'juego', 'objetivo: lista del juego -> juego')
+  check(A.eventoPedido(norm('lista del entreno')) === 'entreno', 'objetivo: lista del entreno -> entreno')
+  check(A.eventoPedido(norm('lista')) === null, 'objetivo: lista sola -> null')
+  let r4 = A.confirmar('5215511111111@s.whatsapp.net', 'Mich', martes, tmpA4b, 'juego')
+  check(r4.estado === 'nuevo' && r4.evento.clave === 'juego-2026-11-15', 'voy al juego el martes -> anota para el domingo')
+  r4 = A.confirmar('5215522222222@s.whatsapp.net', 'Javier', martes, tmpA4b, 'entreno')
+  check(r4.estado === 'nuevo' && r4.evento.clave === 'entreno-2026-11-10', 'voy al entreno el martes -> anota para hoy')
+  r4 = A.confirmar('5215533333333@s.whatsapp.net', 'Ana', martes, tmpA4b)
+  check(r4.estado === 'nuevo' && r4.evento.clave === 'entreno-2026-11-10', 'voy solo el martes -> próximo (entreno de hoy)')
+  let l4 = A.lista(martes, tmpA4b, A.proximoJuego(martes))
+  check(l4.total === 1 && l4.nombres[0] === 'Mich', 'lista del juego: solo Mich')
+  r4 = A.cancelar('5215511111111@s.whatsapp.net', martes, tmpA4b, 'juego')
+  check(r4.estado === 'quitado' && r4.evento.clave === 'juego-2026-11-15', 'no voy al juego -> se quita del domingo')
+  l4 = A.lista(martes, tmpA4b, A.proximoEntreno(martes))
+  check(l4.total === 2, 'cancelar del juego no toca la lista del entreno')
+
+  // 4c. Pausa del coach: empieza inactiva, se guarda en archivo y
+  // sobrevive (se lee de vuelta del archivo).
+  const tmpP = path.join(tmpDir, 'pausa.json')
+  check(P.estaEnPausa(tmpP) === false, 'pausa: sin archivo -> no hay pausa')
+  P.ponerPausa(true, tmpP)
+  check(P.estaEnPausa(tmpP) === true, 'pausa: !pausa -> en pausa')
+  P.ponerPausa(false, tmpP)
+  check(P.estaEnPausa(tmpP) === false, 'pausa: !activa -> sin pausa')
+  check(!fs.existsSync(`${tmpP}.tmp`), 'pausa: escritura atómica, sin temporal')
+  check(JSON.parse(fs.readFileSync(tmpP, 'utf8')).pausa === false, 'pausa: el archivo guarda el estado')
+
   // 5. Avisos (Fase 3): mensajes, grupos y destinos.
   const evE = A.proximoEvento(new Date('2026-11-10T10:00:00-06:00'))
   const mE = V.mensajeRecordatorioEntreno(evE, 2)
@@ -149,6 +211,51 @@ async function main() {
   const li = A.lista(ahora, tmpA)
   const mInt = V.mensajeRecordatorioEntreno(li.evento, li.total)
   check(mInt.includes('Van 1 confirmados'), 'aviso usa el conteo real de la lista')
+
+  // 5b. Avisos con nombres: el recordatorio dice quiénes van (máx. 15).
+  const mN1 = V.mensajeRecordatorioEntreno(evE, 2, ['Mich', 'Javier'])
+  check(mN1.includes('Van 2 confirmados: Mich, Javier'), 'aviso entreno: trae los nombres')
+  const mN0 = V.mensajeRecordatorioEntreno(evE, 0, [])
+  check(mN0.includes('Van 0 confirmados hasta ahora.'), 'aviso entreno: sin confirmados no trae nombres')
+  const muchos = Array.from({ length: 17 }, (_, i) => `Persona${i + 1}`)
+  const mN17 = V.mensajeRecordatorioEntreno(evE, 17, muchos)
+  check(mN17.includes('Persona15') && mN17.includes('y 2 más') && !mN17.includes('Persona16'), 'aviso entreno: máx. 15 nombres y "y 2 más"')
+  const mNJ = V.mensajeRecordatorioJuego(evJ, 1, ['Ana'])
+  check(mNJ.includes('Van 1 confirmados: Ana'), 'aviso juego: trae el nombre')
+  // El recordatorio del próximo evento (para !recordatorio).
+  const tmpA5b = path.join(tmpDir, 'asistencia-5b.json')
+  A.confirmar('5215511111111@s.whatsapp.net', 'Mich', new Date('2026-11-10T10:00:00-06:00'), tmpA5b)
+  const mProxE = V.mensajeRecordatorioProximo(new Date('2026-11-10T10:00:00-06:00'), tmpA5b)
+  check(mProxE.includes('Hoy entrenamos') && mProxE.includes('Mich') && mProxE.includes('Van 1 confirmados'), 'recordatorio próximo (martes): entreno con Mich')
+  A.confirmar('5215522222222@s.whatsapp.net', 'Javier', new Date('2026-11-14T12:00:00-06:00'), tmpA5b)
+  const mProxJ = V.mensajeRecordatorioProximo(new Date('2026-11-14T12:00:00-06:00'), tmpA5b)
+  check(mProxJ.includes('Mañana es el juego') && mProxJ.includes('Javier'), 'recordatorio próximo (sábado): juego con Javier')
+
+  // 5c. Comandos del coach (!pausa, !activa, !info, !recordatorio).
+  const tmpA5c = path.join(tmpDir, 'asistencia-5c.json')
+  const tmpP5c = path.join(tmpDir, 'pausa-5c.json')
+  const martes5c = new Date('2026-11-10T10:00:00-06:00')
+  const sockFalso = { enviados: [], sendMessage: async (chatId, m) => { sockFalso.enviados.push(m.text) } }
+  const opc5c = { ahora: martes5c, archivoAsistencia: tmpA5c, archivoPausa: tmpP5c }
+  let rC = await C.manejarComando('!info', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('activo') && rC.includes('Mensualidad') && rC.includes('entreno del martes, 10 de noviembre') && rC.includes('Van 0 confirmados'), '!info: estado, horario, costos y próximo sin confirmados')
+  rC = await C.manejarComando('!pausa', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('en pausa') && P.estaEnPausa(tmpP5c) === true, '!pausa: pone en pausa y lo guarda')
+  rC = await C.manejarComando('!pausa', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('ya estaba en pausa'), '!pausa dos veces: avisa que ya estaba')
+  rC = await C.manejarComando('!info', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('en pausa'), '!info en pausa: dice que está en pausa')
+  A.confirmar('5215511111111@s.whatsapp.net', 'Mich', martes5c, tmpA5c)
+  rC = await C.manejarComando('!recordatorio', sockFalso, '111@g.us', opc5c)
+  check(rC === null && sockFalso.enviados.length === 1 && sockFalso.enviados[0].includes('Hoy entrenamos') && sockFalso.enviados[0].includes('Mich'), '!recordatorio: manda el aviso al grupo y no responde nada más')
+  rC = await C.manejarComando('!activa', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('activo de nuevo') && P.estaEnPausa(tmpP5c) === false, '!activa: quita la pausa')
+  rC = await C.manejarComando('!activa', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('ya estaba activo'), '!activa dos veces: avisa que ya estaba')
+  rC = await C.manejarComando('!aviso hola', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('Comandos del coach'), 'comando desconocido: lista los comandos')
+  rC = await C.manejarComando('! pausa', sockFalso, '111@g.us', opc5c)
+  check(rC.includes('en pausa'), '"! pausa" con espacio también funciona')
 
   // 6. El cron dispara (cada segundo, 2.5 s).
   let disparos = 0
