@@ -5,9 +5,12 @@ module.exports = {
   // Nombre del equipo. Sale en el mensaje de arranque y en el menú.
   nombreEquipo: 'Equipo de básquetbol',
 
-  // Solo responde en grupos (true = recomendado).
-  // El equipo se comunica por grupo; en privado el bot no contesta.
-  soloGrupos: true,
+  // Responde en grupos Y en privado (false, decisión de Mich 15/11):
+  // cualquiera que le escriba al número recibe respuestas, en el grupo
+  // y en su chat privado. Los avisos programados siguen saliendo SOLO
+  // en grupos (ver avisos.js): un privado nunca recibe avisos.
+  // Si se vuelve a poner true, el bot solo responde en grupos.
+  soloGrupos: false,
 
   // Espera en milisegundos antes de reintentar si se cae la conexión.
   esperaReconexionMs: 5000,

@@ -10,6 +10,8 @@ const A = require('./asistencia')
 const V = require('./avisos')
 const P = require('./pausa')
 const C = require('./coach')
+const K = require('./canal')
+const config = require('./config')
 const cron = require('node-cron')
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bot-test-'))
@@ -211,6 +213,21 @@ async function main() {
   const li = A.lista(ahora, tmpA)
   const mInt = V.mensajeRecordatorioEntreno(li.evento, li.total)
   check(mInt.includes('Van 1 confirmados'), 'aviso usa el conteo real de la lista')
+
+  // 5d. Ronda 4: el bot responde en privado y en grupo, pero los avisos
+  // solo salen en grupos (un privado nunca recibe avisos).
+  check(K.esGrupo('12345@g.us') === true, 'canal: grupo termina en @g.us')
+  check(K.esGrupo('5215511111111@s.whatsapp.net') === false, 'canal: privado no es grupo')
+  check(K.respondeEn('12345@g.us', { soloGrupos: true }) === true, 'canal: en grupo responde aunque soloGrupos sea true')
+  check(K.respondeEn('5215511111111@s.whatsapp.net', { soloGrupos: true }) === false, 'canal: en privado no responde con soloGrupos true')
+  check(K.respondeEn('5215511111111@s.whatsapp.net', { soloGrupos: false }) === true, 'canal: en privado responde con soloGrupos false')
+  check(K.respondeEn('', { soloGrupos: false }) === false, 'canal: sin chat no responde')
+  check(config.soloGrupos === false, 'config: soloGrupos false (individual + grupal, decisión 15/11)')
+  const tmpG4 = path.join(tmpDir, 'grupos-4.json')
+  check(V.registrarGrupo('5215511111111@s.whatsapp.net', tmpG4) === false, 'aviso: un privado no se aprende como destino')
+  check(V.cargarGrupos(tmpG4).length === 0, 'aviso: grupos.json sigue vacío tras un privado')
+  check(V.registrarGrupo('12345@g.us', tmpG4) === true, 'aviso: un grupo sí se aprende')
+  check(V.gruposDestino({ grupoId: null }, tmpG4).length === 1, 'aviso: destino solo el grupo, no el privado')
 
   // 5b. Avisos con nombres: el recordatorio dice quiénes van (máx. 15).
   const mN1 = V.mensajeRecordatorioEntreno(evE, 2, ['Mich', 'Javier'])

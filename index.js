@@ -1,5 +1,7 @@
 // Bot de WhatsApp para el equipo de básquetbol.
-// Librería: Baileys v7 (no oficial, por QR). Solo responde en grupos.
+// Librería: Baileys v7 (no oficial, por QR). Responde en el grupo y en
+// privado a quien le escriba al número (Ronda 4, decisión de Mich 15/11).
+// Los avisos programados solo salen en grupos, nunca en privado.
 
 const qrcode = require('qrcode-terminal')
 const fs = require('fs')
@@ -13,6 +15,7 @@ const {
 } = require('@whiskeysockets/baileys')
 const { reglas, extraerTexto, normalizar } = require('./respuestas')
 const config = require('./config')
+const canal = require('./canal')
 const asistencia = require('./asistencia')
 const avisos = require('./avisos')
 const pausa = require('./pausa')
@@ -84,7 +87,7 @@ async function iniciar() {
 
     if (connection === 'open') {
       console.log('Bot conectado como:', sock.user?.id)
-      console.log('Listo. Solo responde en grupos. Equipo:', config.nombreEquipo)
+      console.log('Listo. Responde en ' + (config.soloGrupos ? 'grupos' : 'grupos y en privado') + '. Equipo:', config.nombreEquipo)
       console.log('Pausa:', pausa.estaEnPausa() ? 'sí (usa !activa para volver)' : 'no')
       const { evento } = asistencia.lista()
       console.log('Próximo evento:', evento.nombre, evento.hora ? `(${evento.hora})` : '')
@@ -96,10 +99,13 @@ async function iniciar() {
     if (type !== 'notify') return
 
     for (const msg of messages) {
-      // Solo grupos: el equipo se comunica por grupo.
-      // Los grupos terminan en @g.us; los chats privados, no.
+      // Grupos y privados (Ronda 4): el equipo se comunica por grupo,
+      // pero cualquiera que le escriba al número también recibe
+      // respuestas en su chat privado. Los grupos terminan en @g.us;
+      // los chats privados, no. La decisión vive en config.soloGrupos
+      // (ver canal.js).
       const chatId = msg.key?.remoteJid || ''
-      if (config.soloGrupos && !chatId.endsWith('@g.us')) continue
+      if (!canal.respondeEn(chatId, config)) continue
 
       const texto = extraerTexto(msg)
 
@@ -125,6 +131,8 @@ async function iniciar() {
       if (!texto) continue
 
       // Fase 3 — el bot aprende el grupo: ahí mandará los avisos.
+      // Solo grupos: un privado nunca se aprende (ver avisos.js), así
+      // los avisos programados solo salen en grupos.
       if (avisos.registrarGrupo(chatId)) {
         console.log('Grupo detectado:', chatId, '(ahí se mandarán los avisos)')
       }

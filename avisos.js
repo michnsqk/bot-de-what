@@ -10,6 +10,10 @@
 //    "Grupo detectado".
 // 2. A mano: pega el ID del grupo en config.grupoId.
 //
+// Los avisos solo salen en grupos, aunque el bot ya responda en privado
+// (Ronda 4, decisión de Mich 15/11): un chat privado nunca se guarda
+// como destino, así jamás recibe avisos.
+//
 // OJO: el aviso solo sale si el bot está prendido a esa hora. Si la compu
 // está apagada, no hay aviso: por eso existe la Fase 4 (hosting 24/7).
 // Y el bot no sabe de días festivos: si no hay entreno un día, el coach
@@ -32,7 +36,11 @@ function cargarGrupos(archivo = ARCHIVO_GRUPOS) {
 }
 
 // Guarda el grupo si es nuevo. Devuelve true solo cuando lo acaba de aprender.
+// Solo grupos: un chat privado nunca se guarda aquí, así los avisos
+// programados solo salen en grupos (Ronda 4: el bot responde en privado,
+// pero jamás manda avisos a un privado).
 function registrarGrupo(chatId, archivo = ARCHIVO_GRUPOS) {
+  if (typeof chatId !== 'string' || !chatId.endsWith('@g.us')) return false
   const grupos = cargarGrupos(archivo)
   if (grupos.includes(chatId)) return false
   grupos.push(chatId)

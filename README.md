@@ -1,14 +1,15 @@
 # Bot de WhatsApp — Equipo de básquetbol
 
 Bot con Baileys v7 (librería no oficial, por QR). Responde en el grupo del
-equipo a preguntas de horarios y costos. No responde en chats privados y no
-contesta cuando no sabe la respuesta, para no spamear el grupo.
+equipo y en privado a quien le escriba al número, a preguntas de horarios
+y costos. No contesta cuando no sabe la respuesta, para no spamear. Los
+avisos programados solo salen en el grupo, nunca en privado.
 
 ## Qué responde
 
 Todo está en `respuestas.js` (edítalo ahí, no toques `index.js`). Los ajustes
-generales —solo grupos, nombre del equipo, espera entre reintentos— están
-en `config.js`.
+generales —si responde en privado, nombre del equipo, espera entre
+reintentos— están en `config.js`.
 
 - **horario** — Entrenamientos lunes a viernes, 3:30 a 5:30 pm. Juegos los domingos.
 - **costos** — Mensualidad $500, semana $150, por clase $70.
@@ -84,12 +85,13 @@ se escanea el QR con el teléfono del equipo).
 - **El número ya tiene que estar en el grupo.** Si el número del equipo
   no está en el grupo del equipo, Javier lo agrega (él es admin). El bot
   no puede meterse solo a un grupo.
-- **El bot solo responde en grupos.** En privado nunca contesta, a
-  propósito: ese mismo número es el teléfono personal del coach, y el
-  bot no se mete en sus chats privados.
-- **Los chats privados del coach no se tocan.** El bot solo lee y
-  responde en el grupo del equipo. Lo que el coach escriba en privado
-  es solo suyo.
+- **El bot responde en el grupo y en privado.** Cualquiera que le escriba
+  al número recibe respuestas, en el grupo del equipo o en su chat privado
+  (decisión de Mich, 15 nov 2026). Los avisos programados, eso sí, solo
+  salen en el grupo: un privado nunca recibe avisos.
+- **Lo que el coach escriba desde su teléfono es solo suyo.** El bot ignora
+  sus mensajes salvo los comandos con `!`. El bot nunca le escribe a nadie
+  por su cuenta: solo responde donde le escriben.
 
 ## Comandos del coach (desde su propio teléfono)
 
@@ -130,17 +132,20 @@ node index.js
 
 **Prueba primero en un grupo de prueba**: crea un grupo con el número del
 equipo y tu número, escribe "horario" y "costos", y revisa que responda
-bien antes de dejarlo en el grupo real de 30 personas.
+bien antes de dejarlo en el grupo real de 30 personas. También pruébalo
+en privado: escríbele al número "horario" desde tu teléfono y debe
+responder igual.
 
-Para probar la lógica sin conectar WhatsApp: `npm test` (134 casos:
-respuestas, asistencia, avisos, pausa, comandos del coach y reconexión).
+Para probar la lógica sin conectar WhatsApp: `npm test` (145 casos:
+respuestas, asistencia, avisos, pausa, comandos del coach, canal grupal y
+privado, y reconexión).
 
 ## Cosas honestas que debes saber
 
 - **La conexión en vivo NO está verificada desde aquí.** Mi entorno
   bloquea el WebSocket de WhatsApp, así que en mi prueba el bot no pudo
   llegar a mostrar el QR. El código carga bien y la lógica está probada
-  (134 casos con `npm test`), pero la primera conexión real la haces tú en tu
+  (145 casos con `npm test`), pero la primera conexión real la haces tú en tu
   compu escaneando el QR. Si al arrancar no sale el QR, revisa tu internet
   y que Node.js sea 20 o más.
 - **Si apagas la compu, el bot se apaga.** Para que esté 24/7 necesitas
