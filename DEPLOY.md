@@ -2,8 +2,9 @@
 
 El bot solo funciona mientras la compu donde corre está prendida. Para que
 esté siempre activo (y los avisos de la Fase 3 salgan a su hora), vive en
-un servidor. Hay dos guías: Railway (fácil, $5 USD/mes) abajo, y
-**Oracle Cloud gratis para siempre** en [DEPLOY-oracle.md](DEPLOY-oracle.md).
+un servidor. Hay tres guías: Railway (fácil, $5 USD/mes) abajo,
+**Oracle Cloud gratis para siempre** en [DEPLOY-oracle.md](DEPLOY-oracle.md)
+y **Google Cloud e2-micro** (casi gratis) en [DEPLOY-gcp.md](DEPLOY-gcp.md).
 
 ## Opción recomendada: Railway
 
