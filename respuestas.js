@@ -70,7 +70,7 @@ const MENU = '🏀 Bot del equipo\n'
 // - "Gracias" va justo antes del menú: "gracias, ¿cuánto cuesta?"
 //   responde costos, no "de nada".
 const reglas = [
-  { claves: ['donde', 'ubicacion', 'hubicacion', 'lugar', 'cancha', 'direccion'], respuesta: 'La ubicación aún no está cargada en el bot. Pregúntale directo al coach.' },
+  { claves: ['donde', 'ubicacion', 'hubicacion', 'lugar', 'cancha', 'direccion'], respuesta: 'La ubicación es Berriozabal Manzana 001, Los Héroes Coacalco, 55712 San Francisco Coacalco, Méx.' },
   { claves: ['llevar', 'llevo'], respuesta: 'Pregúntale directo al coach Javier en el grupo, él te dice qué llevar.' },
   { claves: ['horario', 'orario', 'entrenamiento', 'entrenan', 'cuando'], respuesta: HORARIO },
   { claves: ['costo', 'precio', 'cuanto', 'mensualidad', 'semana', 'clase', 'pagar', 'pago', 'cuesta'], respuesta: COSTOS },

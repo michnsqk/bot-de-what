@@ -16,7 +16,7 @@ reintentos— están en `config.js`.
 - **horario** — Entrenamientos lunes a viernes, 3:30 a 5:30 pm. Juegos los domingos.
 - **costos** — Mensualidad $500, semana $150, por clase $70.
 - **juegos** — Los domingos.
-- **ubicación** — Aún no cargada: el bot dice que le pregunten al coach.
+- **ubicación** — Berriozabal Manzana 001, Los Héroes Coacalco, 55712 San Francisco Coacalco, Méx.
 - **entrar al equipo** — Cómo inscribirse: hablar con el coach Javier, más los costos.
 - **qué llevar** — El bot no lo inventa: dice que le pregunten al coach.
 - **gracias** — Responde corto. "Gracias, ¿cuánto cuesta?" responde los costos.
