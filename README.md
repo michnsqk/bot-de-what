@@ -2,7 +2,9 @@
 
 Bot con Baileys v7 (librería no oficial, por QR). Responde en el grupo del
 equipo y en privado a quien le escriba al número, a preguntas de horarios
-y costos. No contesta cuando no sabe la respuesta, para no spamear. Los
+y costos. No contesta cuando no sabe la respuesta, para no spamear. En
+privado, la primera vez que alguien escribe algo que el bot no entiende,
+le muestra el menú en vez de callar. Los
 avisos programados solo salen en el grupo, nunca en privado.
 
 ## Qué responde
@@ -136,16 +138,16 @@ bien antes de dejarlo en el grupo real de 30 personas. También pruébalo
 en privado: escríbele al número "horario" desde tu teléfono y debe
 responder igual.
 
-Para probar la lógica sin conectar WhatsApp: `npm test` (145 casos:
+Para probar la lógica sin conectar WhatsApp: `npm test` (151 casos:
 respuestas, asistencia, avisos, pausa, comandos del coach, canal grupal y
-privado, y reconexión).
+privado, saludo de bienvenida, y reconexión).
 
 ## Cosas honestas que debes saber
 
 - **La conexión en vivo NO está verificada desde aquí.** Mi entorno
   bloquea el WebSocket de WhatsApp, así que en mi prueba el bot no pudo
   llegar a mostrar el QR. El código carga bien y la lógica está probada
-  (145 casos con `npm test`), pero la primera conexión real la haces tú en tu
+  (151 casos con `npm test`), pero la primera conexión real la haces tú en tu
   compu escaneando el QR. Si al arrancar no sale el QR, revisa tu internet
   y que Node.js sea 20 o más.
 - **Si apagas la compu, el bot se apaga.** Para que esté 24/7 necesitas

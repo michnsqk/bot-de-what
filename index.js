@@ -13,9 +13,10 @@ const {
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } = require('@whiskeysockets/baileys')
-const { reglas, extraerTexto, normalizar } = require('./respuestas')
+const { reglas, extraerTexto, normalizar, MENU } = require('./respuestas')
 const config = require('./config')
 const canal = require('./canal')
+const saludo = require('./saludo')
 const asistencia = require('./asistencia')
 const avisos = require('./avisos')
 const pausa = require('./pausa')
@@ -184,6 +185,14 @@ async function iniciar() {
 
       // Fase 1 — Preguntas frecuentes (solo si no era asistencia ni próximo).
       if (!respuesta) respuesta = buscarRespuesta(texto)
+      // Ronda 5 — Saludo: en privado, si es la primera vez de esa persona
+      // y el bot no entendió el mensaje, muestra el menú en vez de callar.
+      // WhatsApp no avisa cuando alguien solo abre el chat, así que el
+      // saludo sale con su primer mensaje. En grupos nunca saluda.
+      if (!respuesta && saludo.debeSaludar(chatId, remitente, config)) {
+        respuesta = MENU
+        saludo.marcarSaludado(remitente)
+      }
       if (!respuesta) continue // si no sabe la respuesta, no contesta
 
       try {

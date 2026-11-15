@@ -11,6 +11,7 @@ const V = require('./avisos')
 const P = require('./pausa')
 const C = require('./coach')
 const K = require('./canal')
+const S = require('./saludo')
 const config = require('./config')
 const cron = require('node-cron')
 
@@ -228,6 +229,16 @@ async function main() {
   check(V.cargarGrupos(tmpG4).length === 0, 'aviso: grupos.json sigue vacío tras un privado')
   check(V.registrarGrupo('12345@g.us', tmpG4) === true, 'aviso: un grupo sí se aprende')
   check(V.gruposDestino({ grupoId: null }, tmpG4).length === 1, 'aviso: destino solo el grupo, no el privado')
+
+  // 5e. Ronda 5: saludo de bienvenida en privado, solo la primera vez.
+  const tmpS = path.join(tmpDir, 'saludados.json')
+  check(S.debeSaludar('5215511111111@s.whatsapp.net', '5215522222222@s.whatsapp.net', { soloGrupos: false }, tmpS) === true, 'saludo: primer privado sí saluda')
+  check(S.debeSaludar('12345@g.us', '5215522222222@s.whatsapp.net', { soloGrupos: false }, tmpS) === false, 'saludo: en grupo nunca saluda')
+  check(S.debeSaludar('5215511111111@s.whatsapp.net', '5215522222222@s.whatsapp.net', { soloGrupos: true }, tmpS) === false, 'saludo: con soloGrupos no hay saludo')
+  S.marcarSaludado('5215522222222@s.whatsapp.net', tmpS)
+  check(S.yaSaludado('5215522222222@s.whatsapp.net', tmpS) === true, 'saludo: marcado queda guardado')
+  check(S.debeSaludar('5215511111111@s.whatsapp.net', '5215522222222@s.whatsapp.net', { soloGrupos: false }, tmpS) === false, 'saludo: segunda vez ya no saluda')
+  check(!fs.existsSync(`${tmpS}.tmp`), 'saludo: escritura atómica, sin temporal')
 
   // 5b. Avisos con nombres: el recordatorio dice quiénes van (máx. 15).
   const mN1 = V.mensajeRecordatorioEntreno(evE, 2, ['Mich', 'Javier'])

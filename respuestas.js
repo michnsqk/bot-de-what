@@ -81,4 +81,4 @@ const reglas = [
   { claves: ['menu', 'ayuda', 'info', 'hola', 'bot'], respuesta: MENU },
 ]
 
-module.exports = { reglas, extraerTexto, normalizar, HORARIO, COSTOS }
+module.exports = { reglas, extraerTexto, normalizar, HORARIO, COSTOS, MENU }
