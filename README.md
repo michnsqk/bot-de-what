@@ -17,12 +17,12 @@ reintentos— están en `config.js`.
 - **costos** — Mensualidad $500, semana $150, por clase $70.
 - **juegos** — Los domingos.
 - **ubicación** — Berriozabal Manzana 001, Los Héroes Coacalco, 55712 San Francisco Coacalco, Méx.
-- **entrar al equipo** — Cómo inscribirse: hablar con el coach Javier, más los costos.
+- **entrar al equipo** — Cómo inscribirse: hablar con el coach Stephen Mercado, más los costos.
 - **qué llevar** — El bot no lo inventa: dice que le pregunten al coach.
 - **gracias** — Responde corto. "Gracias, ¿cuánto cuesta?" responde los costos.
 - **menu / ayuda / hola** — Muestra el menú.
 - **próximo** — Cuándo es el próximo entreno o juego (con cuántos van).
-- **coach** — Quién es el coach (Javier).
+- **coach** — Quién es el coach (Stephen Mercado).
 
 El bot también entiende abreviaturas de chat ("q", "xq", "pq", "tmb") y
 algún typo ("orario"). Si no entiende el mensaje, no contesta nada.
@@ -85,7 +85,7 @@ se escanea el QR con el teléfono del equipo).
   conecta como un dispositivo vinculado (multi-dispositivo): el coach
   sigue chateando normal desde su teléfono mientras el bot corre.
 - **El número ya tiene que estar en el grupo.** Si el número del equipo
-  no está en el grupo del equipo, Javier lo agrega (él es admin). El bot
+  no está en el grupo del equipo, Stephen Mercado lo agrega (él es admin). El bot
   no puede meterse solo a un grupo.
 - **El bot responde en el grupo y en privado.** Cualquiera que le escriba
   al número recibe respuestas, en el grupo del equipo o en su chat privado

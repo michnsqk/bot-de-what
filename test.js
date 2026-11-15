@@ -42,19 +42,19 @@ async function main() {
     ['juegos el domingo', 'domingos'],
     ['donde es la cancha', 'Berriozabal'],
     ['cuánto cuesta por clase', 'Por clase'],
-    ['quién es el coach', 'Javier'],
+    ['quién es el coach', 'Stephen Mercado'],
     ['algo random sin sentido', null],
     // Ronda 3: inscripción, cuánto debo/es, qué llevar, gracias,
     // abreviaturas de chat y typos.
     ['cómo me inscribo', 'cómo inscribirte'],
     ['quiero entrar al equipo', 'Mensualidad'],
-    ['me quiero unir', 'coach Javier'],
+    ['me quiero unir', 'coach Stephen Mercado'],
     ['cómo entro al equipo', 'inscribirte'],
     ['cuánto debo', 'Mensualidad'],
     ['cuánto es', 'Mensualidad'],
-    ['qué necesito llevar', 'coach Javier'],
-    ['qué llevo al entreno', 'coach Javier'],
-    ['qué llevo al entrenamiento', 'coach Javier'],
+    ['qué necesito llevar', 'coach Stephen Mercado'],
+    ['qué llevo al entreno', 'coach Stephen Mercado'],
+    ['qué llevo al entrenamiento', 'coach Stephen Mercado'],
     ['gracias', 'De nada'],
     ['gracias, ¿cuánto cuesta?', 'Mensualidad'],
     ['muchas gracias', 'De nada'],
@@ -125,7 +125,7 @@ async function main() {
   check(A.proximoJuego(new Date('2026-11-15T12:00:00-06:00')).clave === 'juego-2026-11-15', 'próximo juego domingo -> hoy')
   // "lista del juego" y "lista del entreno" muestran ese evento, no el próximo.
   const tmpA3b = path.join(tmpDir, 'asistencia-3b.json')
-  A.confirmar('5215522222222@s.whatsapp.net', 'Javier', new Date('2026-11-14T12:00:00-06:00'), tmpA3b)
+  A.confirmar('5215522222222@s.whatsapp.net', 'Luis', new Date('2026-11-14T12:00:00-06:00'), tmpA3b)
   A.confirmar('5215511111111@s.whatsapp.net', 'Mich', ahora, tmpA3b)
   const lj = A.lista(ahora, tmpA3b, A.proximoJuego(ahora))
   check(lj.total === 1 && lj.evento.tipo === 'juego', 'lista del juego: trae la lista del domingo')
@@ -149,10 +149,10 @@ async function main() {
   check(r.estado === 'nuevo' && r.total === 1, 'confirmar Mich -> nuevo, total 1')
   r = A.confirmar('5215511111111@s.whatsapp.net', 'Mich', ahora, tmpA)
   check(r.estado === 'ya' && r.total === 1, 'confirmar Mich otra vez -> ya, sin duplicado')
-  r = A.confirmar('5215522222222@s.whatsapp.net', 'Javier', ahora, tmpA)
-  check(r.estado === 'nuevo' && r.total === 2, 'confirmar Javier -> total 2')
+  r = A.confirmar('5215522222222@s.whatsapp.net', 'Luis', ahora, tmpA)
+  check(r.estado === 'nuevo' && r.total === 2, 'confirmar Luis -> total 2')
   let l = A.lista(ahora, tmpA)
-  check(l.total === 2 && l.nombres.join() === 'Mich,Javier', 'lista trae a los dos')
+  check(l.total === 2 && l.nombres.join() === 'Mich,Luis', 'lista trae a los dos')
   r = A.cancelar('5215511111111@s.whatsapp.net', ahora, tmpA)
   check(r.estado === 'quitado' && r.total === 1, 'cancelar Mich -> quitado, total 1')
   r = A.cancelar('5215511111111@s.whatsapp.net', ahora, tmpA)
@@ -174,7 +174,7 @@ async function main() {
   check(A.eventoPedido(norm('lista')) === null, 'objetivo: lista sola -> null')
   let r4 = A.confirmar('5215511111111@s.whatsapp.net', 'Mich', martes, tmpA4b, 'juego')
   check(r4.estado === 'nuevo' && r4.evento.clave === 'juego-2026-11-15', 'voy al juego el martes -> anota para el domingo')
-  r4 = A.confirmar('5215522222222@s.whatsapp.net', 'Javier', martes, tmpA4b, 'entreno')
+  r4 = A.confirmar('5215522222222@s.whatsapp.net', 'Luis', martes, tmpA4b, 'entreno')
   check(r4.estado === 'nuevo' && r4.evento.clave === 'entreno-2026-11-10', 'voy al entreno el martes -> anota para hoy')
   r4 = A.confirmar('5215533333333@s.whatsapp.net', 'Ana', martes, tmpA4b)
   check(r4.estado === 'nuevo' && r4.evento.clave === 'entreno-2026-11-10', 'voy solo el martes -> próximo (entreno de hoy)')
@@ -241,8 +241,8 @@ async function main() {
   check(!fs.existsSync(`${tmpS}.tmp`), 'saludo: escritura atómica, sin temporal')
 
   // 5b. Avisos con nombres: el recordatorio dice quiénes van (máx. 15).
-  const mN1 = V.mensajeRecordatorioEntreno(evE, 2, ['Mich', 'Javier'])
-  check(mN1.includes('Van 2 confirmados: Mich, Javier'), 'aviso entreno: trae los nombres')
+  const mN1 = V.mensajeRecordatorioEntreno(evE, 2, ['Mich', 'Luis'])
+  check(mN1.includes('Van 2 confirmados: Mich, Luis'), 'aviso entreno: trae los nombres')
   const mN0 = V.mensajeRecordatorioEntreno(evE, 0, [])
   check(mN0.includes('Van 0 confirmados hasta ahora.'), 'aviso entreno: sin confirmados no trae nombres')
   const muchos = Array.from({ length: 17 }, (_, i) => `Persona${i + 1}`)
@@ -255,9 +255,9 @@ async function main() {
   A.confirmar('5215511111111@s.whatsapp.net', 'Mich', new Date('2026-11-10T10:00:00-06:00'), tmpA5b)
   const mProxE = V.mensajeRecordatorioProximo(new Date('2026-11-10T10:00:00-06:00'), tmpA5b)
   check(mProxE.includes('Hoy entrenamos') && mProxE.includes('Mich') && mProxE.includes('Van 1 confirmados'), 'recordatorio próximo (martes): entreno con Mich')
-  A.confirmar('5215522222222@s.whatsapp.net', 'Javier', new Date('2026-11-14T12:00:00-06:00'), tmpA5b)
+  A.confirmar('5215522222222@s.whatsapp.net', 'Luis', new Date('2026-11-14T12:00:00-06:00'), tmpA5b)
   const mProxJ = V.mensajeRecordatorioProximo(new Date('2026-11-14T12:00:00-06:00'), tmpA5b)
-  check(mProxJ.includes('Mañana es el juego') && mProxJ.includes('Javier'), 'recordatorio próximo (sábado): juego con Javier')
+  check(mProxJ.includes('Mañana es el juego') && mProxJ.includes('Luis'), 'recordatorio próximo (sábado): juego con Luis')
 
   // 5c. Comandos del coach (!pausa, !activa, !info, !recordatorio).
   const tmpA5c = path.join(tmpDir, 'asistencia-5c.json')

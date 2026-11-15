@@ -71,12 +71,12 @@ const MENU = '🏀 Bot del equipo\n'
 //   responde costos, no "de nada".
 const reglas = [
   { claves: ['donde', 'ubicacion', 'hubicacion', 'lugar', 'cancha', 'direccion'], respuesta: 'La ubicación es Berriozabal Manzana 001, Los Héroes Coacalco, 55712 San Francisco Coacalco, Méx.' },
-  { claves: ['llevar', 'llevo'], respuesta: 'Pregúntale directo al coach Javier en el grupo, él te dice qué llevar.' },
+  { claves: ['llevar', 'llevo'], respuesta: 'Pregúntale directo al coach Stephen Mercado en el grupo, él te dice qué llevar.' },
   { claves: ['horario', 'orario', 'entrenamiento', 'entrenan', 'cuando'], respuesta: HORARIO },
   { claves: ['costo', 'precio', 'cuanto', 'mensualidad', 'semana', 'clase', 'pagar', 'pago', 'cuesta'], respuesta: COSTOS },
   { claves: ['juego', 'partido', 'domingo'], respuesta: 'Los juegos son los domingos. Entrenamientos de lunes a viernes, 3:30 a 5:30 pm.' },
-  { claves: ['coach', 'entrenador', 'profe'], respuesta: 'El coach es Javier. Si necesitas algo, escríbele directo en el grupo y te contesta.' },
-  { claves: ['inscrib', 'entrar al equipo', 'quiero entrar', 'me quiero unir', 'quiero unirme', 'como entro'], respuesta: 'Para entrar al equipo, habla directo con el coach Javier en el grupo. Él te dice cómo inscribirte.\n' + COSTOS },
+  { claves: ['coach', 'entrenador', 'profe'], respuesta: 'El coach es Stephen Mercado. Si necesitas algo, escríbele directo en el grupo y te contesta.' },
+  { claves: ['inscrib', 'entrar al equipo', 'quiero entrar', 'me quiero unir', 'quiero unirme', 'como entro'], respuesta: 'Para entrar al equipo, habla directo con el coach Stephen Mercado en el grupo. Él te dice cómo inscribirte.\n' + COSTOS },
   { claves: ['gracias'], respuesta: '¡De nada! Nos vemos en el entreno. 🏀' },
   { claves: ['menu', 'ayuda', 'info', 'hola', 'bot'], respuesta: MENU },
 ]
