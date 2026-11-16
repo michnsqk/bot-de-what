@@ -13,10 +13,11 @@ const {
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } = require('@whiskeysockets/baileys')
-const { reglas, extraerTexto, normalizar, MENU } = require('./respuestas')
+const { reglas, extraerTexto, normalizar } = require('./respuestas')
 const config = require('./config')
 const canal = require('./canal')
 const saludo = require('./saludo')
+const categorias = require('./categorias')
 const asistencia = require('./asistencia')
 const avisos = require('./avisos')
 const pausa = require('./pausa')
@@ -185,13 +186,28 @@ async function iniciar() {
 
       // Fase 1 — Preguntas frecuentes (solo si no era asistencia ni próximo).
       if (!respuesta) respuesta = buscarRespuesta(texto)
-      // Ronda 5 — Saludo: en privado, si es la primera vez de esa persona
-      // y el bot no entendió el mensaje, muestra el menú en vez de callar.
-      // WhatsApp no avisa cuando alguien solo abre el chat, así que el
-      // saludo sale con su primer mensaje. En grupos nunca saluda.
+      // Ronda 6 — Categorías por edad: en privado, si el bot ya le pidió
+      // el nombre y la edad (o es su primer mensaje) y el mensaje los
+      // trae, responde con su categoría, horarios e inscripción. Si le
+      // pidieron los datos y contesta otra cosa, se los vuelve a pedir.
+      // Solo en privado: en el grupo, "categorías" responde la lista (FAQ).
+      if (!respuesta && !canal.esGrupo(chatId)) {
+        const datos = categorias.extraerNombreEdad(texto)
+        if (datos && (saludo.esperandoDatos(remitente) || saludo.debeSaludar(chatId, remitente, config))) {
+          respuesta = categorias.mensajeCategoria(datos.nombre, datos.edad)
+          saludo.marcarSaludado(remitente)
+          saludo.quitarEsperandoDatos(remitente)
+        } else if (!datos && saludo.esperandoDatos(remitente)) {
+          respuesta = 'Para decirte su categoría necesito el nombre y la edad del jugador. Por ejemplo: Juan, 12 años.'
+        }
+      }
+      // Ronda 5/6 — Bienvenida: en privado, si es la primera vez de esa
+      // persona y el bot no entendió el mensaje, le pide el nombre y la
+      // edad del jugador en vez de callar. En grupos nunca saluda.
       if (!respuesta && saludo.debeSaludar(chatId, remitente, config)) {
-        respuesta = MENU
+        respuesta = saludo.BIENVENIDA
         saludo.marcarSaludado(remitente)
+        saludo.marcarEsperandoDatos(remitente)
       }
       if (!respuesta) continue // si no sabe la respuesta, no contesta
 

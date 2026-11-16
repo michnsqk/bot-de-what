@@ -12,6 +12,26 @@ const path = require('path')
 
 const ARCHIVO = process.env.SALUDADOS_ARCHIVO || path.join(__dirname, 'data', 'saludados.json')
 
+// Mensaje de bienvenida — Ronda 6 (16/11, texto del coach Stephen Mercado).
+// Se le muestra en privado a quien escribe por primera vez (si su mensaje
+// no tiene respuesta) y se le pide el nombre y la edad del jugador para
+// decirle su categoría. Queda marcado como "esperando datos" hasta que
+// responda con nombre y edad (ver categorias.js).
+const BIENVENIDA = '🏀 ¡Bienvenido a Hechiceros Coacalco!\n'
+  + 'Gracias por contactarnos.\n'
+  + 'Cuéntanos el nombre y edad del jugador, y te compartimos nuestros horarios y categorías disponibles.'
+
+const ARCHIVO_ESPERANDO = process.env.ESPERANDO_DATOS_ARCHIVO || path.join(__dirname, 'data', 'esperando-datos.json')
+
+// Escritura atómica: se escribe un temporal y se renombra, igual que en
+// pausa.js y asistencia.js, para no dejar el archivo a medias.
+function guardar(archivo, lista) {
+  fs.mkdirSync(path.dirname(archivo), { recursive: true })
+  const tmp = `${archivo}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(lista, null, 2) + '\n')
+  fs.renameSync(tmp, archivo)
+}
+
 function cargar(archivo = ARCHIVO) {
   try {
     const datos = JSON.parse(fs.readFileSync(archivo, 'utf8'))
@@ -32,10 +52,38 @@ function marcarSaludado(remitente, archivo = ARCHIVO) {
   const lista = cargar(archivo)
   if (lista.includes(remitente)) return false
   lista.push(remitente)
-  fs.mkdirSync(path.dirname(archivo), { recursive: true })
-  const tmp = `${archivo}.tmp`
-  fs.writeFileSync(tmp, JSON.stringify(lista, null, 2) + '\n')
-  fs.renameSync(tmp, archivo)
+  guardar(archivo, lista)
+  return true
+}
+
+// ¿A esta persona ya se le pidieron el nombre y la edad del jugador y
+// todavía no responde? Se marca al mandarle la bienvenida y se quita
+// cuando contesta con nombre y edad.
+function cargarEsperando(archivo = ARCHIVO_ESPERANDO) {
+  try {
+    const datos = JSON.parse(fs.readFileSync(archivo, 'utf8'))
+    return Array.isArray(datos) ? datos : []
+  } catch {
+    return []
+  }
+}
+
+function esperandoDatos(remitente, archivo = ARCHIVO_ESPERANDO) {
+  return cargarEsperando(archivo).includes(remitente)
+}
+
+function marcarEsperandoDatos(remitente, archivo = ARCHIVO_ESPERANDO) {
+  const lista = cargarEsperando(archivo)
+  if (lista.includes(remitente)) return false
+  lista.push(remitente)
+  guardar(archivo, lista)
+  return true
+}
+
+function quitarEsperandoDatos(remitente, archivo = ARCHIVO_ESPERANDO) {
+  const lista = cargarEsperando(archivo)
+  if (!lista.includes(remitente)) return false
+  guardar(archivo, lista.filter((r) => r !== remitente))
   return true
 }
 
@@ -48,4 +96,4 @@ function debeSaludar(chatId, remitente, config, archivo = ARCHIVO) {
   return !yaSaludado(remitente, archivo)
 }
 
-module.exports = { yaSaludado, marcarSaludado, debeSaludar }
+module.exports = { yaSaludado, marcarSaludado, debeSaludar, BIENVENIDA, esperandoDatos, marcarEsperandoDatos, quitarEsperandoDatos }

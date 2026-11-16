@@ -5,13 +5,14 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const { reglas, extraerTexto, normalizar } = require('./respuestas')
+const { reglas, extraerTexto, normalizar, categoriaParaEdad } = require('./respuestas')
 const A = require('./asistencia')
 const V = require('./avisos')
 const P = require('./pausa')
 const C = require('./coach')
 const K = require('./canal')
 const S = require('./saludo')
+const CE = require('./categorias')
 const config = require('./config')
 const cron = require('node-cron')
 
@@ -46,15 +47,22 @@ async function main() {
     ['algo random sin sentido', null],
     // Ronda 3: inscripción, cuánto debo/es, qué llevar, gracias,
     // abreviaturas de chat y typos.
-    ['cómo me inscribo', 'cómo inscribirte'],
-    ['quiero entrar al equipo', 'Mensualidad'],
-    ['me quiero unir', 'coach Stephen Mercado'],
-    ['cómo entro al equipo', 'inscribirte'],
+    // Ronda 6: inscripción $100 anuales + primer entreno gratis, qué llevar
+    // con la lista del coach, y categorías por edad.
+    ['cómo me inscribo', '$100'],
+    ['quiero entrar al equipo', '$100'],
+    ['me quiero unir', '$100'],
+    ['cómo entro al equipo', '$100'],
     ['cuánto debo', 'Mensualidad'],
     ['cuánto es', 'Mensualidad'],
-    ['qué necesito llevar', 'coach Stephen Mercado'],
-    ['qué llevo al entreno', 'coach Stephen Mercado'],
-    ['qué llevo al entrenamiento', 'coach Stephen Mercado'],
+    ['qué necesito llevar', 'Hidratación'],
+    ['qué llevo al entreno', 'Hidratación'],
+    ['qué llevo al entrenamiento', 'balón'],
+    ['qué categorías hay', 'Chupón'],
+    ['categorías', 'Benjamín'],
+    ['categoría u-13', 'U-13'],
+    ['qué categoría es sub 21', 'Sub-21'],
+    ['categoría libre', 'Libre'],
     ['gracias', 'De nada'],
     ['gracias, ¿cuánto cuesta?', 'Mensualidad'],
     ['muchas gracias', 'De nada'],
@@ -135,6 +143,7 @@ async function main() {
   // 3c. El menú ya trae los comandos nuevos.
   const menu = reglas.find((r) => r.claves.includes('menu')).respuesta
   check(menu.includes('próximo') && menu.includes('coach'), 'menú: trae próximo y coach')
+  check(menu.includes('categorías') && menu.includes('$100') && menu.includes('hidratación'), 'menú: trae categorías, inscripción $100 y qué llevar')
 
   // 3d. Leer el texto venga como venga: texto, respuesta, pie de foto/video.
   check(extraerTexto({ message: { conversation: 'hola' } }) === 'hola', 'texto: mensaje normal')
@@ -284,6 +293,57 @@ async function main() {
   check(rC.includes('Comandos del coach'), 'comando desconocido: lista los comandos')
   rC = await C.manejarComando('! pausa', sockFalso, '111@g.us', opc5c)
   check(rC.includes('en pausa'), '"! pausa" con espacio también funciona')
+
+  // 5f. Ronda 6: categorías por edad, bienvenida y nombre+edad.
+  check(categoriaParaEdad(4).nombre === 'Chupón', 'categoría: 4 -> Chupón')
+  check(categoriaParaEdad(7).nombre === 'Chupón', 'categoría: 7 -> Chupón')
+  check(categoriaParaEdad(8).nombre === 'Benjamín', 'categoría: 8 -> Benjamín')
+  check(categoriaParaEdad(9).nombre === 'Benjamín', 'categoría: 9 -> Benjamín')
+  check(categoriaParaEdad(10).nombre === 'Infantil', 'categoría: 10 -> Infantil')
+  check(categoriaParaEdad(11).nombre === 'Infantil', 'categoría: 11 -> Infantil')
+  check(categoriaParaEdad(12).nombre === 'U-13', 'categoría: 12 -> U-13')
+  check(categoriaParaEdad(13).nombre === 'U-13', 'categoría: 13 -> U-13')
+  check(categoriaParaEdad(14).nombre === 'U-15', 'categoría: 14 -> U-15')
+  check(categoriaParaEdad(15).nombre === 'U-15', 'categoría: 15 -> U-15')
+  check(categoriaParaEdad(16).nombre === 'U-17', 'categoría: 16 -> U-17')
+  check(categoriaParaEdad(17).nombre === 'U-17', 'categoría: 17 -> U-17')
+  check(categoriaParaEdad(18).nombre === 'U-19', 'categoría: 18 -> U-19')
+  check(categoriaParaEdad(19).nombre === 'U-19', 'categoría: 19 -> U-19')
+  check(categoriaParaEdad(20).nombre === 'Sub-21', 'categoría: 20 -> Sub-21')
+  check(categoriaParaEdad(21).nombre === 'Sub-21', 'categoría: 21 -> Sub-21')
+  check(categoriaParaEdad(22).nombre === 'Sub-22', 'categoría: 22 -> Sub-22')
+  check(categoriaParaEdad(23).nombre === 'Categoría Libre', 'categoría: 23 -> Libre')
+  check(categoriaParaEdad(30).nombre === 'Categoría Libre', 'categoría: 30 -> Libre')
+  check(categoriaParaEdad(3) === null, 'categoría: 3 -> null (desde los 4)')
+  check(categoriaParaEdad(6).rango === '4 a 7 años', 'categoría: rango 4 a 7 años')
+  check(categoriaParaEdad(22).rango === '22 años', 'categoría: rango Sub-22 es solo 22 años')
+  const ex = (t) => CE.extraerNombreEdad(t)
+  let d = ex('Juan, 12 años')
+  check(d && d.nombre === 'Juan' && d.edad === 12, 'nombre+edad: Juan, 12 años')
+  d = ex('Pedro 10')
+  check(d && d.nombre === 'Pedro' && d.edad === 10, 'nombre+edad: Pedro 10')
+  d = ex('Se llama Ana, tiene 8 años')
+  check(d && d.nombre === 'Ana' && d.edad === 8, 'nombre+edad: Se llama Ana, tiene 8 años')
+  d = ex('Mi hijo Diego, 7')
+  check(d && d.nombre === 'Diego' && d.edad === 7, 'nombre+edad: Mi hijo Diego, 7')
+  d = ex('12 años')
+  check(d && d.nombre === null && d.edad === 12, 'nombre+edad: 12 años sin nombre')
+  check(ex('llego a las 5:30') === null, 'nombre+edad: llego a las 5:30 -> null (es una hora)')
+  check(ex('tengo 5 boletos') === null, 'nombre+edad: tengo 5 boletos -> null')
+  check(ex('hola') === null, 'nombre+edad: hola -> null')
+  check(ex('Juan tiene 12 años y su hermano 10') !== null, 'nombre+edad: dos edades toma la primera')
+  const mc = CE.mensajeCategoria('Juan', 6)
+  check(mc.includes('Chupón') && mc.includes('4 a 7 años') && mc.includes('3:30 a 5:30') && mc.includes('$100') && mc.includes('cortesía') && mc.includes('hidratación') && mc.includes('Mensualidad: $500'), 'mensaje categoría: Chupón con horarios, inscripción, qué llevar y costos')
+  check(CE.mensajeCategoria(null, 25).includes('Categoría Libre') && !CE.mensajeCategoria(null, 25).includes('null'), 'mensaje categoría: sin nombre, Libre, sin "null"')
+  check(CE.mensajeCategoria('Ana', 3).includes('desde los 4 años'), 'mensaje categoría: 3 años -> desde los 4')
+  check(S.BIENVENIDA.includes('Bienvenido a Hechiceros Coacalco') && S.BIENVENIDA.includes('nombre y edad'), 'bienvenida: texto del coach')
+  const tmpE = path.join(tmpDir, 'esperando-datos.json')
+  check(S.esperandoDatos('5215522222222@s.whatsapp.net', tmpE) === false, 'esperando datos: al inicio no')
+  S.marcarEsperandoDatos('5215522222222@s.whatsapp.net', tmpE)
+  check(S.esperandoDatos('5215522222222@s.whatsapp.net', tmpE) === true, 'esperando datos: marcado queda guardado')
+  S.quitarEsperandoDatos('5215522222222@s.whatsapp.net', tmpE)
+  check(S.esperandoDatos('5215522222222@s.whatsapp.net', tmpE) === false, 'esperando datos: quitar lo borra')
+  check(!fs.existsSync(`${tmpE}.tmp`), 'esperando datos: escritura atómica, sin temporal')
 
   // 6. El cron dispara (cada segundo, 2.5 s).
   let disparos = 0
