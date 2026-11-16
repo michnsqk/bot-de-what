@@ -56,7 +56,8 @@ const CATEGORIAS = [
   { min: 22, max: 22, nombre: 'Sub-22' },
 ]
 
-const LISTA_CATEGORIAS = 'Categorías por edad:\n'
+const LISTA_CATEGORIAS = '*Categorías por edad:*\n'
+  + '\n'
   + '• Chupón: 4 a 7 años\n'
   + '• Benjamín: 8 a 9 años\n'
   + '• Infantil: 10 a 11 años\n'
@@ -67,6 +68,8 @@ const LISTA_CATEGORIAS = 'Categorías por edad:\n'
   + '• Sub-21: 20 a 21 años\n'
   + '• Sub-22: 22 años\n'
   + '• Categoría Libre: 23 años en adelante'
+
+const INSCRIPCION = 'La inscripción es de $100 anuales y el primer entrenamiento es de cortesía, gratis.\n' + COSTOS
 
 // ¿En qué categoría cae esta edad? Devuelve { nombre, rango } o null si
 // es menor de 4 años (el equipo recibe desde los 4).
@@ -81,8 +84,9 @@ function categoriaParaEdad(edad) {
   return null
 }
 
-const MENU = '🏀 Bot del equipo\n'
-  + 'Pregúntame por:\n'
+const MENU = '🏀 *Bot del equipo*\n'
+  + '\n'
+  + '*Pregúntame por:*\n'
   + '• horario — entrenamientos y juegos\n'
   + '• costos — mensualidad, semana y por clase\n'
   + '• juegos — partidos del domingo\n'
@@ -90,6 +94,8 @@ const MENU = '🏀 Bot del equipo\n'
   + '• entrar al equipo — inscripción $100 anuales, primer entreno gratis\n'
   + '• qué llevar — hidratación, ropa deportiva y balón\n'
   + '• categorías — Chupón, Benjamín, Infantil, U-13 a Sub-22 y Libre\n'
+  + '\n'
+  + '*Para asistencia:*\n'
   + '• voy — confirmar asistencia al próximo evento\n'
   + '• no voy — quitarme de la lista\n'
   + '• lista — ver quiénes van al próximo evento\n'
@@ -122,9 +128,9 @@ const reglas = [
   { claves: ['costo', 'precio', 'cuanto', 'mensualidad', 'semana', 'clase', 'pagar', 'pago', 'cuesta'], respuesta: COSTOS },
   { claves: ['juego', 'partido', 'domingo'], respuesta: 'Los juegos son los domingos. Entrenamientos de lunes a viernes, 3:30 a 5:30 pm.' },
   { claves: ['coach', 'entrenador', 'profe'], respuesta: 'El coach es Stephen Mercado. Si necesitas algo, escríbele directo en el grupo y te contesta.' },
-  { claves: ['inscrib', 'entrar al equipo', 'quiero entrar', 'me quiero unir', 'quiero unirme', 'como entro'], respuesta: 'La inscripción es de $100 anuales y el primer entrenamiento es de cortesía, gratis.\n' + COSTOS },
+  { claves: ['inscrib', 'entrar al equipo', 'quiero entrar', 'me quiero unir', 'quiero unirme', 'como entro'], respuesta: INSCRIPCION },
   { claves: ['gracias'], respuesta: '¡De nada! Nos vemos en el entreno. 🏀' },
   { claves: ['menu', 'ayuda', 'info', 'hola', 'bot'], respuesta: MENU },
 ]
 
-module.exports = { reglas, extraerTexto, normalizar, HORARIO, COSTOS, MENU, categoriaParaEdad, LISTA_CATEGORIAS }
+module.exports = { reglas, extraerTexto, normalizar, HORARIO, COSTOS, MENU, INSCRIPCION, categoriaParaEdad, LISTA_CATEGORIAS }

@@ -44,10 +44,14 @@ function mensajeCategoria(nombre, edad) {
     return 'El equipo recibe jugadores desde los 4 años. Si tiene menos, pregúntale directo al coach Stephen Mercado en el grupo.'
   }
   const quien = nombre ? `${nombre} queda` : 'Queda'
-  return `¡Perfecto! ${quien} en la categoría ${categoria.nombre} (${categoria.rango}).\n`
+  return `¡Perfecto! ${quien} en la categoría *${categoria.nombre}* (${categoria.rango}).\n`
+    + '\n'
     + 'Entrenamientos: lunes a viernes, 3:30 a 5:30 pm. Juegos: los domingos.\n'
+    + '\n'
     + 'Para entrar al equipo: inscripción de $100 anuales y el primer entrenamiento es de cortesía, gratis.\n'
+    + '\n'
     + 'Hay que llevar: hidratación, ropa deportiva y balón de basketball.\n'
+    + '\n'
     + 'Mensualidad: $500. Semana: $150. Por clase: $70'
 }
 

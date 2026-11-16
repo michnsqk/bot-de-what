@@ -9,6 +9,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { normalizar } = require('./respuestas')
 
 const ARCHIVO = process.env.SALUDADOS_ARCHIVO || path.join(__dirname, 'data', 'saludados.json')
 
@@ -18,10 +19,25 @@ const ARCHIVO = process.env.SALUDADOS_ARCHIVO || path.join(__dirname, 'data', 's
 // decirle su categoría. Queda marcado como "esperando datos" hasta que
 // responda con nombre y edad (ver categorias.js).
 const BIENVENIDA = '🏀 ¡Bienvenido a Hechiceros Coacalco!\n'
+  + '\n'
   + 'Gracias por contactarnos.\n'
+  + '\n'
   + 'Cuéntanos el nombre y edad del jugador, y te compartimos nuestros horarios y categorías disponibles.'
 
+// Qué se le contesta en el grupo a quien saluda por primera vez: el
+// saludo completo con nombre y edad va en privado (en un grupo de 30 no
+// se pide el nombre y la edad de un menor), así que se le invita a
+// escribir en privado. Solo una vez por persona.
+const FUNNEL_GRUPO = '🏀 ¡Hola! Soy el bot de Hechiceros Coacalco.\n'
+  + '\n'
+  + 'Para inscribir a un jugador, escríbenos en privado a este número con su nombre y edad, y te decimos su categoría y horarios.'
+
 const ARCHIVO_ESPERANDO = process.env.ESPERANDO_DATOS_ARCHIVO || path.join(__dirname, 'data', 'esperando-datos.json')
+
+// Saludos en grupo: lista aparte de la de privado. Si se usara la misma,
+// alguien que saludó en el grupo ya no recibiría la bienvenida cuando
+// escribiera en privado (y ahí es donde va el flujo de nombre y edad).
+const ARCHIVO_GRUPO = process.env.SALUDADOS_GRUPO_ARCHIVO || path.join(__dirname, 'data', 'saludados-grupo.json')
 
 // Escritura atómica: se escribe un temporal y se renombra, igual que en
 // pausa.js y asistencia.js, para no dejar el archivo a medias.
@@ -96,4 +112,29 @@ function debeSaludar(chatId, remitente, config, archivo = ARCHIVO) {
   return !yaSaludado(remitente, archivo)
 }
 
-module.exports = { yaSaludado, marcarSaludado, debeSaludar, BIENVENIDA, esperandoDatos, marcarEsperandoDatos, quitarEsperandoDatos }
+// ¿El mensaje es solo un saludo ("hola", "buenas tardes")? Sirve para
+// saludar a quien escribe por primera vez en vez de soltarle el menú.
+// Tiene que ser SOLO el saludo: "hola, ¿cuánto cuesta?" es una pregunta,
+// no un saludo, y se responde con los costos.
+const SALUDOS = ['hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'buen dia', 'hello', 'hey', 'que tal', 'saludos', 'hola bot', 'bot hola']
+
+function esSaludo(texto) {
+  if (typeof texto !== 'string' || !texto.trim()) return false
+  const limpio = normalizar(texto).replace(/[^a-zñ ]/g, '').replace(/\s+/g, ' ').trim()
+  return SALUDOS.includes(limpio)
+}
+
+// Saludos en grupo: ¿a esta persona ya se le invitó al privado una vez?
+function yaSaludadoGrupo(remitente, archivo = ARCHIVO_GRUPO) {
+  return cargar(archivo).includes(remitente)
+}
+
+function marcarSaludadoGrupo(remitente, archivo = ARCHIVO_GRUPO) {
+  const lista = cargar(archivo)
+  if (lista.includes(remitente)) return false
+  lista.push(remitente)
+  guardar(archivo, lista)
+  return true
+}
+
+module.exports = { yaSaludado, marcarSaludado, debeSaludar, BIENVENIDA, FUNNEL_GRUPO, esSaludo, esperandoDatos, marcarEsperandoDatos, quitarEsperandoDatos, yaSaludadoGrupo, marcarSaludadoGrupo }

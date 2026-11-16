@@ -13,7 +13,7 @@ const {
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } = require('@whiskeysockets/baileys')
-const { reglas, extraerTexto, normalizar } = require('./respuestas')
+const { reglas, extraerTexto, normalizar, INSCRIPCION } = require('./respuestas')
 const config = require('./config')
 const canal = require('./canal')
 const saludo = require('./saludo')
@@ -184,8 +184,33 @@ async function iniciar() {
         respuesta = asistencia.mensajeProximo()
       }
 
+      // Ronda 6b — Saludar al que saluda: en privado, si es la primera
+      // vez de esa persona y solo saluda ("hola", "buenas"...), se le
+      // muestra la bienvenida (que pide nombre y edad) en vez del menú.
+      // Antes el "hola" caía en el menú y la bienvenida nunca salía.
+      if (!respuesta && !canal.esGrupo(chatId) && saludo.debeSaludar(chatId, remitente, config) && saludo.esSaludo(texto)) {
+        respuesta = saludo.BIENVENIDA
+        saludo.marcarSaludado(remitente)
+        saludo.marcarEsperandoDatos(remitente)
+      }
+
+      // Ronda 6b — En el grupo, a quien saluda por primera vez se le
+      // contesta una vez invitándolo a escribir en privado: el saludo
+      // completo (nombre y edad de un menor) no va en un grupo de 30.
+      if (!respuesta && canal.esGrupo(chatId) && !saludo.yaSaludadoGrupo(remitente) && saludo.esSaludo(texto)) {
+        respuesta = saludo.FUNNEL_GRUPO
+        saludo.marcarSaludadoGrupo(remitente)
+      }
+
       // Fase 1 — Preguntas frecuentes (solo si no era asistencia ni próximo).
       if (!respuesta) respuesta = buscarRespuesta(texto)
+      // Ronda 6b — En el grupo, si preguntan por entrar al equipo se les
+      // da la info y se les invita a pasar al privado con nombre y edad.
+      // Solo la primera vez por persona.
+      if (respuesta === INSCRIPCION && canal.esGrupo(chatId) && !saludo.yaSaludadoGrupo(remitente)) {
+        respuesta += '\n\nSi es para inscribir a un jugador, escríbenos en privado a este número con su nombre y edad y te decimos su categoría.'
+        saludo.marcarSaludadoGrupo(remitente)
+      }
       // Ronda 6 — Categorías por edad: en privado, si el bot ya le pidió
       // el nombre y la edad (o es su primer mensaje) y el mensaje los
       // trae, responde con su categoría, horarios e inscripción. Si le

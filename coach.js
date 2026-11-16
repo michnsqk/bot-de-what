@@ -43,7 +43,7 @@ async function manejarComando(texto, sock, chatId, opciones = {}) {
   if (cmd === '!info') {
     const { evento, nombres, total } = asistencia.lista(ahora, opciones.archivoAsistencia)
     const estado = pausa.estaEnPausa(opciones.archivoPausa) ? 'en pausa' : 'activo'
-    return `🤖 Bot del equipo — ${estado}\n${HORARIO}\n${COSTOS}\nPróximo: ${evento.nombre}${evento.hora ? ` (${evento.hora})` : ''} — ${avisos.textoConfirmados(total, nombres)}`
+    return `🤖 *Bot del equipo — ${estado}*\n\n${HORARIO}\n\n${COSTOS}\n\nPróximo: ${evento.nombre}${evento.hora ? ` (${evento.hora})` : ''} — ${avisos.textoConfirmados(total, nombres)}`
   }
 
   if (cmd === '!recordatorio') {

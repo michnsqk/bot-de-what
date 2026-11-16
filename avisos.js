@@ -71,11 +71,11 @@ function textoConfirmados(total, nombres = []) {
 }
 
 function mensajeRecordatorioEntreno(evento, total, nombres = []) {
-  return `🏀 Hoy entrenamos, ${evento.nombre} (${evento.hora}).\nConfirma con "voy". ${textoConfirmados(total, nombres)} Escribe "lista" para ver quiénes van.`
+  return `🏀 *Hoy entrenamos*\n\n${evento.nombre} (${evento.hora}).\n\n${textoConfirmados(total, nombres)}\n\nConfirma con "voy". Escribe "lista" para ver quiénes van.`
 }
 
 function mensajeRecordatorioJuego(evento, total, nombres = []) {
-  return `🏀 Mañana es el ${evento.nombre}.\nConfirma con "voy". ${textoConfirmados(total, nombres)} Escribe "lista" para ver quiénes van.`
+  return `🏀 *Mañana es el ${evento.nombre}.*\n\n${textoConfirmados(total, nombres)}\n\nConfirma con "voy". Escribe "lista" para ver quiénes van.`
 }
 
 // Mensaje del recordatorio del próximo evento (el que toque: entreno o

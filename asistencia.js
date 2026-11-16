@@ -155,7 +155,7 @@ function esPreguntaProximo(texto) {
 // El texto con el que el bot responde a "¿cuándo es el próximo evento?".
 function mensajeProximo(ahora = new Date(), archivo = ARCHIVO) {
   const { evento, total } = lista(ahora, archivo)
-  return `El próximo evento es el ${evento.nombre}${evento.hora ? ` (${evento.hora})` : ''}. Van ${total} confirmados. Escribe "voy" para confirmar.`
+  return `El próximo evento es el ${evento.nombre}${evento.hora ? ` (${evento.hora})` : ''}.\n\nVan ${total} confirmados.\n\nEscribe "voy" para confirmar.`
 }
 
 function armarEvento({ y, m, d }, tipo) {

@@ -5,7 +5,7 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const { reglas, extraerTexto, normalizar, categoriaParaEdad } = require('./respuestas')
+const { reglas, extraerTexto, normalizar, categoriaParaEdad, LISTA_CATEGORIAS, INSCRIPCION } = require('./respuestas')
 const A = require('./asistencia')
 const V = require('./avisos')
 const P = require('./pausa')
@@ -125,6 +125,7 @@ async function main() {
   check(esP('¿cuánto cuesta?') === false, 'próximo: ¿cuánto cuesta? -> no')
   const mP1 = A.mensajeProximo(ahora, tmpA)
   check(mP1.includes('entreno del martes, 10 de noviembre') && mP1.includes('Van 0 confirmados'), 'mensaje próximo: entreno de hoy sin confirmados aún')
+  check(mP1.includes('\n\n'), 'mensaje próximo: con espacios entre bloques')
   const mP2 = A.mensajeProximo(new Date('2026-11-14T12:00:00-06:00'), tmpA)
   check(mP2.includes('juego del domingo, 15 de noviembre') && mP2.includes('Van 0 confirmados'), 'mensaje próximo: juego del domingo sin confirmados')
   check(A.proximoJuego(new Date('2026-11-10T10:00:00-06:00')).clave === 'juego-2026-11-15', 'próximo juego desde martes -> domingo')
@@ -276,6 +277,7 @@ async function main() {
   const opc5c = { ahora: martes5c, archivoAsistencia: tmpA5c, archivoPausa: tmpP5c }
   let rC = await C.manejarComando('!info', sockFalso, '111@g.us', opc5c)
   check(rC.includes('activo') && rC.includes('Mensualidad') && rC.includes('entreno del martes, 10 de noviembre') && rC.includes('Van 0 confirmados'), '!info: estado, horario, costos y próximo sin confirmados')
+  check(rC.includes('\n\n'), '!info: con espacios entre bloques')
   rC = await C.manejarComando('!pausa', sockFalso, '111@g.us', opc5c)
   check(rC.includes('en pausa') && P.estaEnPausa(tmpP5c) === true, '!pausa: pone en pausa y lo guarda')
   rC = await C.manejarComando('!pausa', sockFalso, '111@g.us', opc5c)
@@ -344,6 +346,28 @@ async function main() {
   S.quitarEsperandoDatos('5215522222222@s.whatsapp.net', tmpE)
   check(S.esperandoDatos('5215522222222@s.whatsapp.net', tmpE) === false, 'esperando datos: quitar lo borra')
   check(!fs.existsSync(`${tmpE}.tmp`), 'esperando datos: escritura atómica, sin temporal')
+
+  // 5g. Ronda 6b: saludar al que saluda, saludo en grupo y presentación.
+  check(S.esSaludo('hola') === true, 'esSaludo: hola')
+  check(S.esSaludo('¡Hola!') === true, 'esSaludo: ¡Hola!')
+  check(S.esSaludo('buenas tardes') === true, 'esSaludo: buenas tardes')
+  check(S.esSaludo('qué tal') === true, 'esSaludo: qué tal')
+  check(S.esSaludo('hola bot') === true, 'esSaludo: hola bot')
+  check(S.esSaludo('hola, ¿cuánto cuesta?') === false, 'esSaludo: hola + pregunta no es solo saludo')
+  check(S.esSaludo('horario') === false, 'esSaludo: horario no es saludo')
+  check(S.esSaludo('') === false, 'esSaludo: vacío no es saludo')
+  check(S.FUNNEL_GRUPO.includes('privado') && S.FUNNEL_GRUPO.includes('nombre y edad'), 'funnel grupo: invita al privado con nombre y edad')
+  const tmpG6 = path.join(tmpDir, 'saludados-grupo.json')
+  check(S.yaSaludadoGrupo('5215522222222@s.whatsapp.net', tmpG6) === false, 'saludo grupo: al inicio no')
+  S.marcarSaludadoGrupo('5215522222222@s.whatsapp.net', tmpG6)
+  check(S.yaSaludadoGrupo('5215522222222@s.whatsapp.net', tmpG6) === true, 'saludo grupo: marcado queda guardado')
+  check(!fs.existsSync(`${tmpG6}.tmp`), 'saludo grupo: escritura atómica, sin temporal')
+  check(INSCRIPCION.includes('$100') && INSCRIPCION.includes('cortesía'), 'inscripción: texto único exportado')
+  check(menu.includes('\n\n') && menu.includes('*Bot del equipo*'), 'menú: con espacios y título en negrita')
+  check(LISTA_CATEGORIAS.includes('\n\n') && LISTA_CATEGORIAS.includes('*Categorías por edad:*'), 'lista categorías: con espacios y título en negrita')
+  check(S.BIENVENIDA.includes('\n\n'), 'bienvenida: con espacios entre líneas')
+  check(CE.mensajeCategoria('Juan', 6).includes('\n\n') && CE.mensajeCategoria('Juan', 6).includes('*Chupón*'), 'mensaje categoría: con espacios y categoría en negrita')
+  check(mE.includes('\n\n') && mJ.includes('\n\n'), 'avisos: con espacios entre bloques')
 
   // 6. El cron dispara (cada segundo, 2.5 s).
   let disparos = 0
