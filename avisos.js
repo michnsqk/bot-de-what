@@ -39,8 +39,10 @@ function cargarGrupos(archivo = ARCHIVO_GRUPOS) {
 // Solo grupos: un chat privado nunca se guarda aquí, así los avisos
 // programados solo salen en grupos (Ronda 4: el bot responde en privado,
 // pero jamás manda avisos a un privado).
-function registrarGrupo(chatId, archivo = ARCHIVO_GRUPOS) {
+// Ronda 7: si ya hay un grupo elegido, no se aprende ningún otro grupo.
+function registrarGrupo(chatId, archivo = ARCHIVO_GRUPOS, grupoElegidoId = null) {
   if (typeof chatId !== 'string' || !chatId.endsWith('@g.us')) return false
+  if (grupoElegidoId && chatId !== grupoElegidoId) return false
   const grupos = cargarGrupos(archivo)
   if (grupos.includes(chatId)) return false
   grupos.push(chatId)
@@ -52,9 +54,13 @@ function registrarGrupo(chatId, archivo = ARCHIVO_GRUPOS) {
   return true
 }
 
-// A qué grupos se mandan los avisos: el de config (si está puesto) más
-// los que el bot aprendió solo, sin repetir.
-function gruposDestino(config, archivo = ARCHIVO_GRUPOS) {
+// A qué grupos se mandan los avisos. Ronda 7: si hay un grupo elegido
+// (en config o con !grupo), SOLO a ese; los demás grupos se ignoran.
+// Sin grupo elegido, como antes: el de config (si está puesto) más los
+// que el bot aprendió solo, sin repetir.
+function gruposDestino(config, archivo = ARCHIVO_GRUPOS, grupoElegidoId = null) {
+  const elegido = grupoElegidoId || (config.grupoId && config.grupoId.endsWith('@g.us') ? config.grupoId : null)
+  if (elegido) return [elegido]
   const lista = cargarGrupos(archivo)
   if (config.grupoId && !lista.includes(config.grupoId)) lista.unshift(config.grupoId)
   return lista

@@ -91,9 +91,25 @@ se escanea el QR con el teléfono del equipo).
   al número recibe respuestas, en el grupo del equipo o en su chat privado
   (decisión de Mich, 15 nov 2026). Los avisos programados, eso sí, solo
   salen en el grupo: un privado nunca recibe avisos.
+- **El bot solo sirve a UN grupo (Ronda 7, 20 nov 2026).** El coach manda
+  `!grupo` dentro del grupo bueno y el bot lo guarda como el único: en
+  los demás grupos no contesta ni manda avisos. En el grupo bueno solo
+  atiende avisos y asistencia (voy / no voy / lista): nada de
+  categorías ni informes, eso va en privado.
 - **Lo que el coach escriba desde su teléfono es solo suyo.** El bot ignora
-  sus mensajes salvo los comandos con `!`. El bot nunca le escribe a nadie
-  por su cuenta: solo responde donde le escriben.
+  sus mensajes salvo los comandos con `!` y los anuncios de partido
+  (ver abajo). El bot nunca le escribe a nadie por su cuenta: solo
+  responde donde le escriben.
+
+## Partidos: el coach avisa y el bot recuerda (Ronda 7)
+
+Cuando el coach avisa un partido en el grupo bueno con un mensaje
+normal ("jugamos el domingo a las 1:00 Hechiceros vs Rezball"), el bot
+lo lee, confirma lo que entendió y crea tres recordatorios: 12 h, 2 h
+y 30 min antes del partido. El de 12 h nunca sale de noche: si cae
+entre las 10 pm y las 8 am, sale a las 8 am siguientes. Si el coach
+anuncia otro partido, el nuevo reemplaza al anterior. Los recordatorios
+sobreviven a reinicios del bot.
 
 ## Comandos del coach (desde su propio teléfono)
 
@@ -109,6 +125,10 @@ se mete.
   confirmados y si está en pausa o activo.
 - **!recordatorio** — Manda ahora mismo el recordatorio del próximo
   evento, en ese grupo.
+- **!grupo** — Este grupo pasa a ser EL grupo del bot: solo ahí contesta
+  y manda avisos. En los demás grupos ya no contesta ni manda avisos.
+  Para cambiarlo, el coach manda `!grupo` en otro grupo.
+- **!grupos** — Lista los grupos que el bot conoce y cuál es el elegido.
 
 **Si el bot no responde:** revisa en este orden: 1) ¿la compu o el
 servidor donde corre sigue prendido? 2) ¿el coach puso !pausa?

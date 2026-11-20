@@ -13,6 +13,8 @@ const C = require('./coach')
 const K = require('./canal')
 const S = require('./saludo')
 const CE = require('./categorias')
+const GE = require('./grupoelegido')
+const PJ = require('./partido')
 const config = require('./config')
 const cron = require('node-cron')
 
@@ -217,10 +219,12 @@ async function main() {
   check(V.registrarGrupo('12345@g.us', tmpG) === false, 'grupo repetido no se duplica')
   V.registrarGrupo('67890@g.us', tmpG)
   check(V.cargarGrupos(tmpG).length === 2, 'dos grupos guardados')
+  // Ronda 7: con grupo en config, el destino es SOLO ese grupo; los
+  // aprendidos se ignoran (antes era config + aprendidos).
   const dest = V.gruposDestino({ grupoId: '99999@g.us' }, tmpG)
-  check(dest.length === 3 && dest[0] === '99999@g.us', 'destino = config + aprendidos, sin repetir')
+  check(dest.length === 1 && dest[0] === '99999@g.us', 'destino = solo el grupo de config, los aprendidos se ignoran')
   const dest2 = V.gruposDestino({ grupoId: '12345@g.us' }, tmpG)
-  check(dest2.length === 2, 'config repetido no duplica')
+  check(dest2.length === 1 && dest2[0] === '12345@g.us', 'config repetido no duplica (sigue siendo solo ese grupo)')
   const li = A.lista(ahora, tmpA)
   const mInt = V.mensajeRecordatorioEntreno(li.evento, li.total)
   check(mInt.includes('Van 1 confirmados'), 'aviso usa el conteo real de la lista')
@@ -455,6 +459,134 @@ async function main() {
   } catch { atomOk = false }
   check(atomOk, '20 confirmaciones rápidas: archivo válido con 20 personas')
   check(!fs.existsSync(`${tmpA2}.tmp`), 'no quedan archivos temporales tras escribir')
+
+  // 10. Ronda 7: grupo elegido, solo avisos + asistencia en el grupo, y
+  // lectura del anuncio del partido con sus 3 recordatorios.
+  // 10a. Grupo elegido: se guarda, se lee y manda el de config.
+  const tmpGE = path.join(tmpDir, 'grupo-elegido.json')
+  check(GE.cargar(tmpGE) === null, 'grupo elegido: sin archivo -> null')
+  check(GE.guardar('111@g.us', tmpGE) === '111@g.us', 'grupo elegido: se guarda')
+  check(GE.cargar(tmpGE) === '111@g.us', 'grupo elegido: se lee de vuelta')
+  check(GE.guardar('no-es-grupo', tmpGE) === null, 'grupo elegido: un privado no se guarda')
+  check(GE.elegido({ grupoId: null }, tmpGE) === '111@g.us', 'grupo elegido: sin config manda el guardado')
+  check(GE.elegido({ grupoId: '999@g.us' }, tmpGE) === '999@g.us', 'grupo elegido: el de config manda sobre el guardado')
+  check(GE.limpiar(tmpGE) === true && GE.cargar(tmpGE) === null, 'grupo elegido: limpiar lo borra')
+  check(!fs.existsSync(`${tmpGE}.tmp`), 'grupo elegido: escritura atómica, sin temporal')
+
+  // 10b. Canal y avisos con grupo elegido: los demás grupos se ignoran.
+  check(K.respondeEn('111@g.us', { soloGrupos: false }, '111@g.us') === true, 'canal: en el grupo elegido sí responde')
+  check(K.respondeEn('222@g.us', { soloGrupos: false }, '111@g.us') === false, 'canal: en otro grupo no responde')
+  check(K.respondeEn('5215511111111@s.whatsapp.net', { soloGrupos: false }, '111@g.us') === true, 'canal: en privado sigue respondiendo con grupo elegido')
+  check(K.respondeEn('222@g.us', { soloGrupos: false }) === true, 'canal: sin grupo elegido, en todos como antes')
+  const tmpG7 = path.join(tmpDir, 'grupos-7.json')
+  check(V.registrarGrupo('222@g.us', tmpG7, '111@g.us') === false, 'aviso: con grupo elegido no se aprende otro grupo')
+  check(V.cargarGrupos(tmpG7).length === 0, 'aviso: grupos.json sigue vacío tras ignorar el otro grupo')
+  check(V.registrarGrupo('111@g.us', tmpG7, '111@g.us') === true, 'aviso: el grupo elegido sí se aprende')
+  const dest7 = V.gruposDestino({ grupoId: null }, tmpG7, '111@g.us')
+  check(dest7.length === 1 && dest7[0] === '111@g.us', 'aviso: destino solo el grupo elegido')
+
+  // 10c. Comandos !grupo y !grupos.
+  const sockG = {
+    enviados: [],
+    sendMessage: async (chatId, m) => { sockG.enviados.push(m.text) },
+    groupMetadata: async (id) => ({ subject: id === '111@g.us' ? 'Hechiceros' : 'Selectivo' }),
+  }
+  const tmpGE2 = path.join(tmpDir, 'grupo-elegido-2.json')
+  const tmpG7b = path.join(tmpDir, 'grupos-7b.json')
+  V.registrarGrupo('222@g.us', tmpG7b)
+  let rG = await C.manejarComando('!grupo', sockG, '111@g.us', { archivoGrupoElegido: tmpGE2 })
+  check(rG.includes('Hechiceros') && rG.includes('grupo del bot') && GE.cargar(tmpGE2) === '111@g.us', '!grupo: guarda el grupo y confirma con su nombre')
+  rG = await C.manejarComando('!grupo', sockG, '5215511111111@s.whatsapp.net', { archivoGrupoElegido: tmpGE2 })
+  check(rG.includes('no en privado'), '!grupo en privado: pide mandarlo en el grupo')
+  rG = await C.manejarComando('!grupos', sockG, '111@g.us', { archivoGrupoElegido: tmpGE2, archivoGrupos: tmpG7b })
+  check(rG.includes('Hechiceros') && rG.includes('grupo del bot') && rG.includes('Selectivo'), '!grupos: lista los grupos con el elegido marcado')
+  rG = await C.manejarComando('!nose', sockG, '111@g.us', {})
+  check(rG.includes('!grupo') && rG.includes('!grupos'), 'ayuda: trae !grupo y !grupos')
+  const grupoIdOrig = config.grupoId
+  config.grupoId = '999@g.us'
+  rG = await C.manejarComando('!grupo', sockG, '111@g.us', { archivoGrupoElegido: tmpGE2 })
+  check(rG.includes('config.js'), '!grupo con grupo fijado en config: no lo cambia')
+  config.grupoId = grupoIdOrig
+
+  // 10d. Leer el anuncio del coach: día, hora y rival.
+  // Miércoles 18 nov 2026, 10:00 hora de México.
+  const miercoles = new Date('2026-11-18T10:00:00-06:00')
+  const pa = (t, a = miercoles) => PJ.parsearAnuncio(t, a)
+  let pj = pa('Buenos días a todos. Espero se encuentren bien, jugamos el domingo a las 1:00 Hechiceros vs Rezball. Confirmar asistencia')
+  check(pj && pj.fecha.toISOString() === '2026-11-22T19:00:00.000Z' && pj.rival === 'Rezball', 'partido: el anuncio real del coach -> domingo 13:00 vs Rezball')
+  pj = pa('Partido el sábado a las 4')
+  check(pj && pj.fecha.toISOString() === '2026-11-21T22:00:00.000Z' && pj.rival === null, 'partido: sábado a las 4 -> 16:00 sin rival')
+  pj = pa('mañana jugamos a las 10')
+  check(pj && pj.fecha.toISOString() === '2026-11-19T16:00:00.000Z', 'partido: mañana a las 10 -> jueves 10:00')
+  pj = pa('hoy a las 3 pm vs Halcones')
+  check(pj && pj.fecha.toISOString() === '2026-11-18T21:00:00.000Z' && pj.rival === 'Halcones', 'partido: hoy 3 pm vs Halcones')
+  pj = pa('el domingo jugamos a las 13:00')
+  check(pj && pj.fecha.toISOString() === '2026-11-22T19:00:00.000Z', 'partido: domingo 13:00 en 24 h')
+  pj = pa('jugamos el 23 a las 5')
+  check(pj && pj.fecha.toISOString() === '2026-11-23T23:00:00.000Z', 'partido: el 23 a las 5 -> 17:00')
+  pj = pa('jugamos el próximo domingo a las 2', new Date('2026-11-22T10:00:00-06:00'))
+  check(pj && pj.fecha.toISOString() === '2026-11-29T20:00:00.000Z', 'partido: el próximo domingo en domingo -> el siguiente')
+  pj = pa('jugamos el domingo a las 10')
+  check(pj && pj.fecha.toISOString() === '2026-11-22T16:00:00.000Z', 'partido: a las 10 sin am/pm -> 10:00 am')
+  pj = pa('jugamos el domingo a las 3')
+  check(pj && pj.fecha.toISOString() === '2026-11-22T21:00:00.000Z', 'partido: a las 3 sin am/pm -> 3:00 pm')
+  pj = pa('jugamos el domingo a las 8 pm')
+  check(pj && pj.fecha.toISOString() === '2026-11-23T02:00:00.000Z', 'partido: a las 8 pm -> 20:00')
+  pj = pa('jugamos el domingo a las 8 am')
+  check(pj && pj.fecha.toISOString() === '2026-11-22T14:00:00.000Z', 'partido: a las 8 am -> 08:00')
+  check(pa('jugamos bien el domingo') === null, 'partido: jugamos bien el domingo -> null (sin hora)')
+  check(pa('hola a todos') === null, 'partido: hola -> null')
+  check(pa('nos vemos el domingo a la 1') === null, 'partido: nos vemos el domingo -> null (no es anuncio)')
+  check(pa('hoy a las 8') === null, 'partido: hoy a las 8 ya pasó -> null')
+  check(pa('') === null, 'partido: vacío -> null')
+
+  // 10e. Los 3 recordatorios: 12 h, 2 h y 30 min antes. El de 12 h
+  // nunca sale de noche: si cae entre 10 pm y 8 am, sale a las 8 am
+  // siguientes. Para un juego domingo 13:00, el de 12 h cae domingo
+  // 1:00 am y se mueve a domingo 8:00 am.
+  const juegoDom13 = new Date('2026-11-22T13:00:00-06:00')
+  const rec13 = PJ.horariosRecordatorio(juegoDom13)
+  check(rec13.length === 3, 'recordatorios: juego domingo 13:00 -> 3 avisos')
+  check(rec13[0].tipo === '12h' && rec13[0].en.toISOString() === '2026-11-22T14:00:00.000Z', 'recordatorios: 12 h antes cae 1 am del domingo -> se mueve a domingo 8:00 am')
+  check(rec13[1].tipo === '2h' && rec13[1].en.toISOString() === '2026-11-22T17:00:00.000Z', 'recordatorios: 2 h antes -> domingo 11:00 am')
+  check(rec13[2].tipo === '30m' && rec13[2].en.toISOString() === '2026-11-22T18:30:00.000Z', 'recordatorios: 30 min antes -> domingo 12:30 pm')
+  const rec10 = PJ.horariosRecordatorio(new Date('2026-11-22T10:00:00-06:00'))
+  check(rec10.length === 2 && rec10.map((r) => r.tipo).join() === '2h,30m', 'recordatorios: juego 10:00 -> el de 12 h cae sábado 10 pm, se mueve a domingo 8 am y choca con el de 2 h')
+  const rec20 = PJ.horariosRecordatorio(new Date('2026-11-22T20:00:00-06:00'))
+  check(rec20.length === 3 && rec20[0].en.toISOString() === '2026-11-22T14:00:00.000Z', 'recordatorios: juego 20:00 -> 12 h antes es 8:00 am, no se mueve')
+
+  // 10f. Anunciar guarda el partido y la confirmación dice lo que entendió.
+  const tmpPJ = path.join(tmpDir, 'partido.json')
+  check(PJ.anunciar('hola a todos', miercoles, tmpPJ) === null, 'anunciar: hola no es un partido')
+  const j1 = PJ.anunciar('jugamos el domingo a las 1:00 Hechiceros vs Rezball', miercoles, tmpPJ)
+  check(j1 && j1.rival === 'Rezball' && j1.avisos.length === 3, 'anunciar: guarda el partido con 3 recordatorios')
+  check(PJ.cargar(tmpPJ).fechaISO === '2026-11-22T19:00:00.000Z', 'anunciar: el partido queda guardado')
+  check(!fs.existsSync(`${tmpPJ}.tmp`), 'anunciar: escritura atómica, sin temporal')
+  const mConf = PJ.mensajeConfirmacion(j1)
+  check(mConf.includes('domingo, 22 de noviembre') && mConf.includes('1:00 pm') && mConf.includes('Rezball'), 'confirmación: día, hora y rival')
+  check(mConf.includes('domingo 8:00 am') && mConf.includes('domingo 11:00 am') && mConf.includes('domingo 12:30 pm'), 'confirmación: las 3 horas de aviso')
+  const m12 = PJ.mensajeRecordatorioPartido(j1, j1.avisos[0], 0, [])
+  check(m12.includes('Hoy jugamos') && m12.includes('domingo, 22 de noviembre') && m12.includes('1:00 pm') && m12.includes('Rezball') && m12.includes('Van 0 confirmados'), 'aviso 12 h: hoy, con hora, rival y confirmados')
+  const m30 = PJ.mensajeRecordatorioPartido(j1, j1.avisos[2], 2, ['Mich', 'Luis'])
+  check(m30.includes('Hoy jugamos — faltan 30 minutos') && m30.includes('Van 2 confirmados: Mich, Luis'), 'aviso 30 min: hoy, con nombres')
+  const evJuego = { tipo: 'juego', clave: 'juego-2026-11-22', nombre: 'juego del domingo, 22 de noviembre' }
+  check(PJ.textoEventoJuego(evJuego, tmpPJ) === 'juego del domingo, 22 de noviembre a las 1:00 pm vs Rezball', 'evento: el juego anunciado trae hora y rival')
+  check(PJ.textoEventoJuego({ tipo: 'juego', clave: 'juego-2026-11-29', nombre: 'juego del domingo, 29 de noviembre' }, tmpPJ) === 'juego del domingo, 29 de noviembre', 'evento: otro domingo no es el anunciado')
+  check(PJ.textoEventoJuego({ tipo: 'entreno', clave: 'entreno-2026-11-18', nombre: 'entreno del martes, 18 de noviembre' }, tmpPJ) === 'entreno del martes, 18 de noviembre', 'evento: el entreno no cambia')
+
+  // 10g. Los recordatorios se mandan a su hora y quedan marcados.
+  const t0 = new Date()
+  const tmpPJ2 = path.join(tmpDir, 'partido-2.json')
+  const juegoT = { fechaISO: new Date(t0.getTime() + 31 * 60 * 1000).toISOString(), rival: 'Rezball', avisos: [{ tipo: '30m', enISO: new Date(t0.getTime() + 1200).toISOString(), enviado: false }] }
+  PJ.guardar(juegoT, tmpPJ2)
+  const sockT = { enviados: [], sendMessage: async (chatId, m) => { sockT.enviados.push(m.text) } }
+  const armados = PJ.programarRecordatorios(sockT, '111@g.us', { archivo: tmpPJ2, ahora: t0 })
+  check(armados === 1, 'recordatorio 30m: se arma 1 temporizador')
+  await sleep(2000)
+  check(sockT.enviados.length === 1 && sockT.enviados[0].includes('faltan 30 minutos'), 'recordatorio 30m: se manda a su hora')
+  check(PJ.cargar(tmpPJ2).avisos[0].enviado === true, 'recordatorio 30m: queda marcado como enviado')
+  check(PJ.programarRecordatorios(sockT, '111@g.us', { archivo: tmpPJ2, ahora: t0 }) === 0, 'recordatorio 30m: ya enviado no se vuelve a armar')
+  check(PJ.programarRecordatorios(sockT, null, { archivo: tmpPJ2 }) === 0, 'recordatorio: sin grupo no se arma nada')
 
   fs.rmSync(tmpDir, { recursive: true, force: true })
   console.log(fails === 0 ? `TODAS LAS PRUEBAS PASAN (${total}/${total})` : `${fails} FALLOS de ${total}`)

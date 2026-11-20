@@ -22,9 +22,10 @@ module.exports = {
   recordatorioEntreno: '0 13 * * 1-5',
   recordatorioJuego: '0 18 * * 6',
 
-  // Grupo del equipo (opcional). Si lo dejas en null, el bot aprende el
-  // grupo solo: cuando alguien escriba en el grupo, guarda su ID en
-  // grupos.json y ahí manda los avisos. El ID sale en la consola como
-  // "Grupo detectado".
+  // Grupo del equipo (opcional). Si lo pones aquí, ese es EL grupo del
+  // bot: solo ahí contesta y manda avisos (Ronda 7). Si lo dejas en null,
+  // el coach elige el grupo mandando !grupo dentro del grupo bueno, y el
+  // bot lo guarda en data/grupo-elegido.json. Para cambiarlo, el coach
+  // manda !grupo en otro grupo.
   grupoId: null,
 }

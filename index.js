@@ -16,6 +16,8 @@ const {
 const { reglas, extraerTexto, normalizar, INSCRIPCION } = require('./respuestas')
 const config = require('./config')
 const canal = require('./canal')
+const grupoElegido = require('./grupoelegido')
+const partido = require('./partido')
 const saludo = require('./saludo')
 const categorias = require('./categorias')
 const asistencia = require('./asistencia')
@@ -50,6 +52,12 @@ function buscarRespuesta(texto) {
     }
   }
   return null
+}
+
+// Nombre del evento con hora y rival cuando hay un partido anunciado
+// para esa fecha (Ronda 7); si no, el nombre normal del evento.
+function nombreEvento(evento) {
+  return partido.textoEventoJuego(evento)
 }
 
 async function iniciar() {
@@ -94,6 +102,10 @@ async function iniciar() {
       const { evento } = asistencia.lista()
       console.log('Próximo evento:', evento.nombre, evento.hora ? `(${evento.hora})` : '')
       avisos.programarAvisos(sock, config)
+      // Ronda 7: si hay un partido anunciado guardado, se rearman sus
+      // recordatorios (por si el bot se reinició).
+      const armados = partido.programarRecordatorios(sock, grupoElegido.elegido(config))
+      if (armados > 0) console.log('Recordatorios del partido rearmados:', armados)
     }
   })
 
@@ -106,18 +118,20 @@ async function iniciar() {
       // respuestas en su chat privado. Los grupos terminan en @g.us;
       // los chats privados, no. La decisión vive en config.soloGrupos
       // (ver canal.js).
+      // Ronda 7: en grupos el bot solo sirve al grupo elegido (con
+      // !grupo o en config); a los demás grupos los ignora.
       const chatId = msg.key?.remoteJid || ''
-      if (!canal.respondeEn(chatId, config)) continue
-
       const texto = extraerTexto(msg)
+      const elegidoId = grupoElegido.elegido(config)
 
       // El coach escribe desde su propio teléfono (mismo número del bot):
       // sus mensajes llegan como fromMe. Solo los que empiezan con "!"
-      // son comandos del coach; lo demás es su chat normal y el bot no
-      // se mete. Los comandos se atienden aunque el bot esté en pausa
-      // (si no, no habría cómo volver con !activa).
-      if (msg.key.fromMe) {
-        if (!texto || !texto.trim().startsWith('!')) continue
+      // son comandos del coach. Se atienden en cualquier chat, incluso
+      // en un grupo que el bot ignora: así el coach puede mover el
+      // grupo elegido con !grupo desde donde esté. Los comandos se
+      // atienden aunque el bot esté en pausa (si no, no habría cómo
+      // volver con !activa).
+      if (msg.key.fromMe && texto && texto.trim().startsWith('!')) {
         try {
           const respuestaCoach = await coach.manejarComando(texto, sock, chatId)
           if (respuestaCoach) {
@@ -130,12 +144,34 @@ async function iniciar() {
         continue
       }
 
+      if (!canal.respondeEn(chatId, config, elegidoId)) continue
+
+      // Mensaje normal del coach en el grupo elegido: ¿avisó un partido?
+      // Si lo entendí, guardo el partido, armo sus recordatorios y le
+      // confirmo lo que registré. Sus demás mensajes no se contestan.
+      if (msg.key.fromMe) {
+        if (canal.esGrupo(chatId) && texto) {
+          const juego = partido.anunciar(texto, new Date())
+          if (juego) {
+            partido.programarRecordatorios(sock, chatId)
+            try {
+              await sock.sendMessage(chatId, { text: partido.mensajeConfirmacion(juego) }, { quoted: msg })
+            } catch (err) {
+              console.error('No se pudo confirmar el partido:', err.message)
+            }
+            console.log('Partido anunciado:', juego.fechaISO, juego.rival || '')
+          }
+        }
+        continue
+      }
+
       if (!texto) continue
 
       // Fase 3 — el bot aprende el grupo: ahí mandará los avisos.
       // Solo grupos: un privado nunca se aprende (ver avisos.js), así
       // los avisos programados solo salen en grupos.
-      if (avisos.registrarGrupo(chatId)) {
+      // Ronda 7: con grupo elegido, no se aprende ningún otro grupo.
+      if (avisos.registrarGrupo(chatId, undefined, elegidoId)) {
         console.log('Grupo detectado:', chatId, '(ahí se mandarán los avisos)')
       }
 
@@ -158,13 +194,13 @@ async function iniciar() {
         // undefined = usa la fecha y el archivo por defecto.
         const r = asistencia.confirmar(remitente, nombre, undefined, undefined, pedido)
         respuesta = r.estado === 'nuevo'
-          ? `Listo, ${nombre}. Te anoté para el ${r.evento.nombre}${r.evento.hora ? ` (${r.evento.hora})` : ''}. Van ${r.total} hasta ahora.`
-          : `Ya estabas anotado para el ${r.evento.nombre}, ${nombre}.`
+          ? `Listo, ${nombre}. Te anoté para el ${nombreEvento(r.evento)}${r.evento.hora ? ` (${r.evento.hora})` : ''}. Van ${r.total} hasta ahora.`
+          : `Ya estabas anotado para el ${nombreEvento(r.evento)}, ${nombre}.`
       } else if (intencion === 'cancelar') {
         const r = asistencia.cancelar(remitente, undefined, undefined, pedido)
         respuesta = r.estado === 'quitado'
-          ? `Listo, ${nombre}. Te quité de la lista del ${r.evento.nombre}.`
-          : `No estabas anotado para el ${r.evento.nombre}, ${nombre}.`
+          ? `Listo, ${nombre}. Te quité de la lista del ${nombreEvento(r.evento)}.`
+          : `No estabas anotado para el ${nombreEvento(r.evento)}, ${nombre}.`
       } else if (intencion === 'lista') {
         // "lista" sola: el próximo evento. "lista del juego" o "lista del
         // entreno": ese evento aunque no sea el próximo.
@@ -175,9 +211,14 @@ async function iniciar() {
             : null
         const r = asistencia.lista(undefined, undefined, eventoFijo)
         respuesta = r.total === 0
-          ? `Para el ${r.evento.nombre} nadie ha confirmado todavía. Escribe "voy" para anotarte.`
-          : `Para el ${r.evento.nombre} van ${r.total}:\n${r.nombres.map((n, i) => `${i + 1}. ${n}`).join('\n')}`
+          ? `Para el ${nombreEvento(r.evento)} nadie ha confirmado todavía. Escribe "voy" para anotarte.`
+          : `Para el ${nombreEvento(r.evento)} van ${r.total}:\n${r.nombres.map((n, i) => `${i + 1}. ${n}`).join('\n')}`
       }
+
+      // Ronda 7 — en el grupo el bot solo atiende asistencia (voy, no
+      // voy, lista): nada de preguntas, categorías ni saludos. En
+      // privado todo sigue igual.
+      if (!respuesta && canal.esGrupo(chatId)) continue
 
       // "¿Cuándo es el próximo juego?" — responde con el evento real.
       if (!respuesta && asistencia.esPreguntaProximo(limpio)) {
